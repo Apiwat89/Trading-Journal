@@ -54,7 +54,7 @@ export default function Categories() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('ลบหมวดนี้? การเทรดทั้งหมดในหมวดนี้จะถูกลบไปด้วย')) return
+    if (!confirm('Delete this category? All trades in this category will also be deleted.')) return
     await supabase.from('categories').delete().eq('id', id)
     load()
   }
@@ -62,33 +62,33 @@ export default function Categories() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>หมวดหุ้น / คู่เงิน</h1>
-        <p className="page-sub">แยกบันทึกการเทรดตามสัญลักษณ์ที่คุณสร้างเอง เช่น XAUUSD, EURUSD, PTT</p>
+        <h1>Categories</h1>
+        <p className="page-sub">Organize your trades by symbols you create yourself, e.g., XAUUSD, EURUSD, PTT</p>
       </div>
 
       <form onSubmit={handleCreate} className="inline-form">
         <input
           type="text"
-          placeholder="ชื่อหมวด เช่น XAUUSD"
+          placeholder="Category name, e.g., XAUUSD"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
         />
         <input
           type="text"
-          placeholder="คำอธิบาย (ไม่บังคับ)"
+          placeholder="Description (optional)"
           value={newDesc}
           onChange={(e) => setNewDesc(e.target.value)}
         />
         <button type="submit" className="btn btn-primary">
-          + เพิ่มหมวด
+          + Add Category
         </button>
       </form>
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="page-loading">กำลังโหลด...</div>
+        <div className="page-loading">Loading...</div>
       ) : categories.length === 0 ? (
-        <div className="empty-state">ยังไม่มีหมวด — เพิ่มหมวดแรกของคุณด้านบน</div>
+        <div className="empty-state">No categories yet — add your first category above</div>
       ) : (
         <div className="category-grid">
           {categories.map((c) => (
@@ -96,10 +96,10 @@ export default function Categories() {
               <Link to={`/categories/${c.id}`} className="category-card-main">
                 <div className="category-card-name">{c.name}</div>
                 {c.description && <div className="category-card-desc">{c.description}</div>}
-                <div className="category-card-count">{counts[c.id] || 0} เทรด</div>
+                <div className="category-card-count">{counts[c.id] || 0} trades</div>
               </Link>
               <button className="btn btn-ghost btn-small" onClick={() => handleDelete(c.id)}>
-                ลบ
+                Delete
               </button>
             </div>
           ))}

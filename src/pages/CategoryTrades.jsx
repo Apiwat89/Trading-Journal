@@ -55,19 +55,19 @@ export default function CategoryTrades() {
     <div className="page">
       <div className="page-header">
         <div>
-          <Link to="/categories" className="breadcrumb">← หมวดทั้งหมด</Link>
+          <Link to="/categories" className="breadcrumb">← All Categories</Link>
           <h1>{category?.name || '...'}</h1>
           {category?.description && <p className="page-sub">{category.description}</p>}
         </div>
         <Link to={`/categories/${categoryId}/new`} className="btn btn-primary page-header-action">
-          + บันทึกเทรดใหม่
+          + Record New Trade
         </Link>
       </div>
 
       <div className="stat-row">
         <div className="stat-pill">
           <span className="stat-value">{trades.length}</span>
-          <span className="stat-label">เทรดทั้งหมด</span>
+          <span className="stat-label">Total Trades</span>
         </div>
         <div className="stat-pill">
           <span className="stat-value">{winRate}%</span>
@@ -75,30 +75,29 @@ export default function CategoryTrades() {
         </div>
         <div className={`stat-pill ${totalPL >= 0 ? 'positive' : 'negative'}`}>
           <span className="stat-value">{totalPL >= 0 ? '+' : ''}{totalPL.toFixed(2)}</span>
-          <span className="stat-label">กำไร/ขาดทุนรวม</span>
+          <span className="stat-label">Total P&L</span>
         </div>
       </div>
 
       {!loading && trades.length > 0 && (
         <AIInsight
-          title={`AI วิเคราะห์หมวด ${category?.name || ''}`}
+          title={`AI analyzes ${category?.name || ''}`}
           cacheKey={`ai_category_${user?.id || 'anon'}_${categoryId}`}
           signature={aiSignature}
           buildPrompt={buildCategoryPrompt}
-          actionLabel="ให้ AI วิเคราะห์หมวดนี้"
+          actionLabel="AI analyze"
         />
       )}
 
       {loading ? (
-        <div className="page-loading">กำลังโหลด...</div>
+        <div className="page-loading">Loading...</div>
       ) : trades.length === 0 ? (
-        <div className="empty-state">ยังไม่มีบันทึกเทรดในหมวดนี้ — เริ่มบันทึกเทรดแรกของคุณ</div>
+        <div className="empty-state">No trades recorded in this category — start recording your first trade</div>
       ) : (
         <div className="trade-list">
           {trades.map((t) => (
             <Link to={`/trades/${t.id}`} key={t.id} className="trade-card">
               <div className="trade-card-section before">
-                <span className="section-label">BEFORE</span>
                 <div className="trade-card-row">
                   <span>{t.direction === 'buy' ? '🔼 BUY' : '🔽 SELL'}</span>
                   <span>Entry {t.entry_price ?? '-'}</span>
@@ -106,7 +105,8 @@ export default function CategoryTrades() {
                   <span>TP {t.take_profit ?? '-'}</span>
                   <span>Lot {t.lot_size ?? '-'}</span>
                 </div>
-                {t.strategy && <div className="trade-card-tag">{t.strategy}</div>}
+                {t.strategy && <div className="trade-card-tag">{t.strategy}</div>} <br />
+                {t.plan_notes && <div className="trade-card-tag2">{t.plan_notes}</div>}
               </div>
               <div className="trade-card-section result">
                 <span className={`result-badge ${t.result}`}>{resultLabel[t.result]}</span>
@@ -123,7 +123,7 @@ export default function CategoryTrades() {
         </div>
       )}
 
-      <Link to={`/categories/${categoryId}/new`} className="fab" aria-label="บันทึกเทรดใหม่">
+      <Link to={`/categories/${categoryId}/new`} className="fab" aria-label="Record New Trade">
         +
       </Link>
     </div>

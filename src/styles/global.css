@@ -8,6 +8,7 @@
    ========================================================================== */
 
 :root {
+  color-scheme: dark;
   --bg: #05060a;
   --surface: #12141b;
   --surface-2: #191d27;
@@ -1014,6 +1015,17 @@ a.compare-card:hover {
   border-radius: 999px;
   padding: 3px 9px;
 }
+.trade-card-tag2 {
+  display: inline-block;
+  margin-top: 7px;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 600;
+  border: 1px solid var(--gold-dim);
+  background: var(--gold-dim);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
 .trade-card-section.result {
   display: flex;
   flex-direction: column;
@@ -1322,7 +1334,9 @@ a.compare-card:hover {
     display: grid;
     place-items: center;
     position: fixed;
-    right: 18px;
+    left: 0;
+    right: 0;
+    margin: 0 auto;
     bottom: calc(78px + env(safe-area-inset-bottom));
     width: 54px;
     height: 54px;

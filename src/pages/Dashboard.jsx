@@ -238,11 +238,11 @@ export default function Dashboard() {
           </div>
 
           <AIInsight
-            title="AI วิเคราะห์ภาพรวมพอร์ต"
+            title="AI analyzes portfolio."
             cacheKey={`ai_overall_${user?.id || 'anon'}`}
             signature={aiSignature}
             buildPrompt={buildOverallPrompt}
-            actionLabel="ให้ AI วิเคราะห์ภาพรวม"
+            actionLabel="AI analyze"
           />
 
           <div className="panel">

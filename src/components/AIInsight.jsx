@@ -3,8 +3,7 @@ import { askGemini, hasGeminiKey } from '../lib/gemini'
 
 /**
  * Renders a very small markdown subset (paragraphs, **bold**, "- " bullet
- * lists, "1. " numbered lists) into JSX. We avoid dangerouslySetInnerHTML
- * entirely since this text comes from a third-party API response.
+ * lists, "1. " numbered lists) into JSX.
  */
 function renderInline(text, keyPrefix) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean)
@@ -69,17 +68,6 @@ function renderAiText(text) {
   return blocks
 }
 
-/**
- * @param {object} props
- * @param {string} props.title - card heading, e.g. "AI วิเคราะห์ภาพรวมพอร์ต"
- * @param {string} props.cacheKey - stable localStorage key for this analysis context
- * @param {string} props.signature - fingerprint of the underlying data; when it
- *   changes we tell the user their cached analysis may be outdated
- * @param {() => string} props.buildPrompt - returns the prompt text to send
- * @param {boolean} [props.disabled] - true when there isn't enough data yet
- * @param {string} [props.disabledHint] - message shown when disabled
- * @param {string} [props.actionLabel] - button label for the first run
- */
 export default function AIInsight({
   title,
   cacheKey,
@@ -87,25 +75,35 @@ export default function AIInsight({
   buildPrompt,
   disabled,
   disabledHint,
-  actionLabel = 'ให้ AI วิเคราะห์',
+  actionLabel = 'Generate AI Analysis',
 }) {
-  const [result, setResult] = useState(null) // { text, signature, generatedAt }
+  const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isExpanded, setIsExpanded] = useState(true)
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(cacheKey)
-      setResult(raw ? JSON.parse(raw) : null)
+      if (raw) {
+        setResult(JSON.parse(raw))
+        setIsExpanded(false) // ✅ พับเก็บอัตโนมัติถ้าโหลดข้อมูลเก่าจาก Cache
+      } else {
+        setResult(null)
+        setIsExpanded(true)
+      }
     } catch {
       setResult(null)
+      setIsExpanded(true)
     }
     setError('')
   }, [cacheKey])
 
-  const run = async () => {
+  const run = async (e) => {
+    if (e) e.stopPropagation() // ป้องกันการกาง/พับ ซ้ำซ้อนตอนกดปุ่ม
     setLoading(true)
     setError('')
+    setIsExpanded(true) // ✅ กางออกเสมอเวลากำลังโหลด
     try {
       const prompt = buildPrompt()
       const text = await askGemini(prompt)
@@ -114,10 +112,10 @@ export default function AIInsight({
       try {
         localStorage.setItem(cacheKey, JSON.stringify(payload))
       } catch {
-        // localStorage full/unavailable — not fatal, just won't cache
+        // ignore
       }
     } catch (e) {
-      setError(e.message || 'เกิดข้อผิดพลาดในการวิเคราะห์')
+      setError(e.message || 'An error occurred during analysis.')
     } finally {
       setLoading(false)
     }
@@ -127,52 +125,70 @@ export default function AIInsight({
 
   return (
     <div className="ai-card">
-      <div className="ai-card-head">
+      <div 
+        className="ai-card-head"
+        onClick={() => result && !loading && setIsExpanded(!isExpanded)}
+        style={{ cursor: result && !loading ? 'pointer' : 'default', userSelect: 'none' }}
+      >
         <span className="ai-badge">
           <span className="ai-dot" />
           {title}
         </span>
-        {!disabled && hasGeminiKey() && (
-          <button className="btn btn-ai btn-small" onClick={run} disabled={loading}>
-            {loading ? (
-              <>
-                <span className="spinner" /> กำลังวิเคราะห์...
-              </>
-            ) : result ? (
-              'วิเคราะห์ใหม่'
-            ) : (
-              actionLabel
-            )}
-          </button>
-        )}
+        
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {/* ข้อความบอกสถานะ พับ/กาง */}
+          {result && !loading && (
+            <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600 }}>
+              {isExpanded ? '▲ Collapse' : '▼ View Analysis'}
+            </span>
+          )}
+
+          {!disabled && hasGeminiKey() && (
+            <button className="btn btn-ai btn-small" onClick={run} disabled={loading}>
+              {loading ? (
+                <>
+                  <span className="spinner" /> Analyzing...
+                </>
+              ) : result ? (
+                'Regenerate'
+              ) : (
+                actionLabel
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
-      {disabled ? (
-        <div className="ai-card-empty">{disabledHint || 'ยังไม่มีข้อมูลพอให้วิเคราะห์'}</div>
-      ) : !hasGeminiKey() ? (
-        <div className="ai-card-empty">
-          ยังไม่ได้ตั้งค่า Gemini API key — เพิ่ม <code>VITE_GEMINI_API_KEY</code> ในไฟล์ <code>.env</code> แล้วรีสตาร์ท
-          dev server เพื่อเปิดใช้ฟีเจอร์นี้
-        </div>
-      ) : loading && !result ? (
-        <div className="ai-skeleton">
-          <div className="ai-skeleton-line" style={{ width: '92%' }} />
-          <div className="ai-skeleton-line" style={{ width: '78%' }} />
-          <div className="ai-skeleton-line" style={{ width: '85%' }} />
-        </div>
-      ) : result ? (
+      {/* ควบคุมการแสดงผลเนื้อหาตามค่า isExpanded */}
+      {isExpanded && (
         <>
-          <div className="ai-card-body">{renderAiText(result.text)}</div>
-          <div className="ai-card-meta">
-            วิเคราะห์เมื่อ {new Date(result.generatedAt).toLocaleString('th-TH')}
-            {stale ? ' · ข้อมูลมีการเปลี่ยนแปลงตั้งแต่ครั้งล่าสุด กด "วิเคราะห์ใหม่" เพื่ออัปเดต' : ''}
-          </div>
-        </>
-      ) : (
-        <div className="ai-card-empty">กดปุ่มด้านบนให้ Gemini ช่วยอ่านสถิติและสรุปให้ฟัง</div>
-      )}
+          {disabled ? (
+            <div className="ai-card-empty">{disabledHint || 'Not enough data for analysis yet.'}</div>
+          ) : !hasGeminiKey() ? (
+            <div className="ai-card-empty">
+              Gemini API key is missing. Please add <code>VITE_GEMINI_API_KEY</code> to your <code>.env</code> file and restart the server.
+            </div>
+          ) : loading && !result ? (
+            <div className="ai-skeleton">
+              <div className="ai-skeleton-line" style={{ width: '92%' }} />
+              <div className="ai-skeleton-line" style={{ width: '78%' }} />
+              <div className="ai-skeleton-line" style={{ width: '85%' }} />
+            </div>
+          ) : result ? (
+            <>
+              <div className="ai-card-body">{renderAiText(result.text)}</div>
+              <div className="ai-card-meta">
+                Analyzed on {new Date(result.generatedAt).toLocaleString('en-US')}
+                {stale ? ' · Data has changed since last analysis. Click "Regenerate" to update.' : ''}
+              </div>
+            </>
+          ) : (
+            <div className="ai-card-empty">Click the button above to generate insights.</div>
+          )}
 
-      {error && <div className="alert alert-error" style={{ marginTop: 12, marginBottom: 0 }}>{error}</div>}
+          {error && <div className="alert alert-error" style={{ marginTop: 12, marginBottom: 0 }}>{error}</div>}
+        </>
+      )}
     </div>
   )
 }

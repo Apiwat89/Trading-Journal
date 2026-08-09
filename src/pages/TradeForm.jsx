@@ -31,9 +31,19 @@ const emptyForm = {
   traded_at: new Date().toISOString().slice(0, 16),
 }
 
-const MISTAKE_OPTIONS = ['FOMO', 'Overtrade', 'Revenge trade', 'ไม่รอ confirmation', 'ไม่ตัดขาดทุนตามแผน', 'ไม่มีข่าว']
+const DEFAULT_TIMEFRAMES = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
+const DEFAULT_STRATEGIES = ['SMC', 'Price Action', 'EMA Cross', 'Breakout', 'Trend Following']
+const DEFAULT_SETUPS = ['BOS + Support', 'Double Top/Bottom', 'Liquidity Sweep', 'Order Block', 'Break & Retest']
+const DEFAULT_MISTAKES = [
+  'FOMO', 
+  'Overtrade', 
+  'Revenge trade', 
+  'No confirmation', 
+  'Didn\'t cut loss', 
+  'No news'
+]
 
-const resultLabel = { win: '🟢 Win', loss: '🔴 Loss', breakeven: '⚪ Breakeven', open: '🟦 กำลังเปิดอยู่' }
+const resultLabel = { win: '🟢 Win', loss: '🔴 Loss', breakeven: '⚪ Breakeven', open: '🟦 Open' }
 
 function HeroGallery({ before, after }) {
   const hasBefore = Boolean(before)
@@ -54,24 +64,24 @@ function HeroGallery({ before, after }) {
             className={`hero-gallery-tab ${tab === 'before' ? 'active' : ''}`}
             onClick={() => setTab('before')}
           >
-            🟦 ก่อนเทรด
+            🟦 Before trading
           </button>
           <button
             type="button"
             className={`hero-gallery-tab ${tab === 'after' ? 'active' : ''}`}
             onClick={() => setTab('after')}
           >
-            🟥 หลังปิดเทรด
+            🟥 After trading
           </button>
         </div>
       )}
       {src ? (
         <div className="hero-gallery-frame" onClick={() => setZoomed(true)}>
-          <img src={src} alt={tab === 'before' ? 'กราฟก่อนเทรด' : 'กราฟหลังปิดเทรด'} />
-          <span className="hero-gallery-hint">คลิกเพื่อขยาย 🔍</span>
+          <img src={src} alt={tab === 'before' ? 'Chart before trading' : 'Chart after closing trade'} />
+          <span className="hero-gallery-hint">Click to enlarge 🔍</span>
         </div>
       ) : (
-        <div className="hero-gallery-empty">ไม่มีรูปสำหรับช่วงนี้</div>
+        <div className="hero-gallery-empty">No images available for this period</div>
       )}
       {zoomed && <Lightbox src={src} alt="chart" onClose={() => setZoomed(false)} />}
     </div>
@@ -92,6 +102,11 @@ export default function TradeForm() {
   const [error, setError] = useState('')
   const [uploadingBefore, setUploadingBefore] = useState(false)
   const [uploadingAfter, setUploadingAfter] = useState(false)
+
+  const [availableTags, setAvailableTags] = useState(DEFAULT_MISTAKES)
+  const [availableTimeframes, setAvailableTimeframes] = useState(DEFAULT_TIMEFRAMES)
+  const [availableStrategies, setAvailableStrategies] = useState(DEFAULT_STRATEGIES)
+  const [availableSetups, setAvailableSetups] = useState(DEFAULT_SETUPS)
 
   useEffect(() => {
     const load = async () => {
@@ -120,9 +135,34 @@ export default function TradeForm() {
         const { data: cat } = await supabase.from('categories').select('name').eq('id', categoryId).single()
         setCategoryName(cat?.name || '')
       }
+
+      if (user) {
+        const { data: pastData } = await supabase
+          .from('trades')
+          .select('mistake_tags, timeframe, strategy, setup') // ดึงคอลัมน์เพิ่ม
+          .eq('user_id', user.id)
+
+        if (pastData) {
+          // 1. จัดการ Mistake tags
+          const allUserTags = pastData.flatMap(t => t.mistake_tags || [])
+          setAvailableTags([...new Set([...DEFAULT_MISTAKES, ...allUserTags])])
+
+          // 2. จัดการ Timeframes
+          const userTimeframes = pastData.map(t => t.timeframe).filter(Boolean)
+          setAvailableTimeframes([...new Set([...DEFAULT_TIMEFRAMES, ...userTimeframes])])
+
+          // 3. จัดการ Strategies
+          const userStrategies = pastData.map(t => t.strategy).filter(Boolean)
+          setAvailableStrategies([...new Set([...DEFAULT_STRATEGIES, ...userStrategies])])
+
+          // 4. จัดการ Setups
+          const userSetups = pastData.map(t => t.setup).filter(Boolean)
+          setAvailableSetups([...new Set([...DEFAULT_SETUPS, ...userSetups])])
+        }
+      }
     }
     load()
-  }, [editing, id, categoryId])
+  }, [editing, id, categoryId, user])
 
   const update = (key) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value
@@ -184,7 +224,7 @@ export default function TradeForm() {
   }
 
   const handleDelete = async () => {
-    if (!confirm('ลบเทรดนี้?')) return
+    if (!confirm('Delete this trade?')) return
     await supabase.from('trades').delete().eq('id', id)
     navigate(`/categories/${resolvedCategoryId}`)
   }
@@ -224,16 +264,16 @@ export default function TradeForm() {
     form.mistake_tags,
   ].join('|')
 
-  if (loading) return <div className="page-loading">กำลังโหลด...</div>
+  if (loading) return <div className="page-loading">Loading...</div>
 
   return (
     <div className="page page-narrow">
       <div className="page-header">
         <div>
           <Link to={`/categories/${resolvedCategoryId}`} className="breadcrumb">
-            ← {categoryName || 'กลับ'}
+            ← {categoryName || 'Back to Category'}
           </Link>
-          <h1>{editing ? 'แก้ไขเทรด' : 'บันทึกเทรดใหม่'}</h1>
+          <h1>{editing ? 'Edit Trade' : 'Record New Trade'}</h1>
         </div>
       </div>
 
@@ -243,25 +283,25 @@ export default function TradeForm() {
 
       {editing && (
         <AIInsight
-          title="AI วิเคราะห์ไม้นี้"
+          title="AI analyzes this trade."
           cacheKey={`ai_trade_${id}`}
           signature={tradeAiSignature}
           buildPrompt={buildTradePrompt}
-          actionLabel="ให้ AI วิเคราะห์ไม้นี้"
+          actionLabel="AI analyze"
         />
       )}
 
       <form onSubmit={handleSubmit} className="trade-form">
         <label className="field">
-          วันเวลาที่เทรด
+          date & time of trade
           <input type="datetime-local" value={form.traded_at} onChange={update('traded_at')} />
         </label>
 
         <section className="form-section before">
-          <h2>🟦 ก่อนเทรด</h2>
+          <h2>🟦 Before Trading</h2>
           <div className="field-grid">
             <label className="field">
-              ทิศทาง
+              Direction
               <select value={form.direction} onChange={update('direction')}>
                 <option value="buy">Buy</option>
                 <option value="sell">Sell</option>
@@ -285,89 +325,99 @@ export default function TradeForm() {
             </label>
             <label className="field">
               Timeframe
-              <input type="text" placeholder="H1, H4, M15..." value={form.timeframe} onChange={update('timeframe')} />
+              <input type="text" list="timeframe-options" placeholder="H1, H4, M15..." value={form.timeframe} onChange={update('timeframe')} />
+              <datalist id="timeframe-options">
+                {availableTimeframes.map(tf => <option key={tf} value={tf} />)}
+              </datalist>
             </label>
             <label className="field">
               Session
+              {/* โค้ด Session Select เหมือนเดิม ปล่อยไว้ */}
               <select value={form.session} onChange={update('session')}>
                 <option value="asia">Asia</option>
                 <option value="london">London</option>
                 <option value="newyork">New York</option>
-                <option value="other">อื่นๆ</option>
+                <option value="other">Other</option>
               </select>
             </label>
             <label className="field">
               Strategy
-              <input type="text" placeholder="SMC, EMA Cross..." value={form.strategy} onChange={update('strategy')} />
-            </label>
-            <label className="field">
-              Setup
-              <input type="text" placeholder="BOS + Support" value={form.setup} onChange={update('setup')} />
+              <input type="text" list="strategy-options" placeholder="SMC, EMA Cross..." value={form.strategy} onChange={update('strategy')} />
+              <datalist id="strategy-options">
+                {availableStrategies.map(st => <option key={st} value={st} />)}
+              </datalist>
             </label>
           </div>
           <label className="field">
-            แผนการเทรด / เหตุผลที่เข้าออเดอร์
-            <textarea rows={3} value={form.plan_notes} onChange={update('plan_notes')} placeholder="เช่น EMA 50/200 เป็นขาขึ้น รอราคา retest แนวรับ..." />
+            Setup
+            <input type="text" list="setup-options" placeholder="BOS + Support" value={form.setup} onChange={update('setup')} />
+            <datalist id="setup-options">
+              {availableSetups.map(su => <option key={su} value={su} />)}
+            </datalist>
           </label>
           <label className="field">
-            ข่าวช่วงเวลาที่เทรด (ถ้ามี)
-            <textarea rows={2} value={form.news_notes} onChange={update('news_notes')} placeholder="เช่น NFP วันนี้ 19:30 น." />
+            Trading Plan / Reason for Entry
+            <textarea rows={3} value={form.plan_notes} onChange={update('plan_notes')} placeholder="e.g., EMA 50/200 is trending upward, waiting for price retest at support..." />
           </label>
           <label className="field">
-            รูปกราฟก่อนเข้าเทรด
+            News During Trading Period (if any)
+            <textarea rows={2} value={form.news_notes} onChange={update('news_notes')} placeholder="e.g., NFP released today at 19:30 UTC" />
+          </label>
+          <label className="field">
+            Chart Before Trading
             <input type="file" accept="image/*" onChange={(e) => e.target.files[0] && uploadImage(e.target.files[0], 'before')} />
-            {uploadingBefore && <span className="hint">กำลังอัปโหลด...</span>}
+            {uploadingBefore && <span className="hint">Uploading...</span>}
             {form.before_image_url && <img className="preview-img" src={form.before_image_url} alt="before" />}
           </label>
         </section>
 
         <section className="form-section result">
-          <h2>🟩 ผลการเทรด</h2>
+          <h2>🟩 Result</h2>
           <div className="field-grid">
             <label className="field">
               Exit
               <input type="number" step="any" value={form.exit_price} onChange={update('exit_price')} />
             </label>
             <label className="field">
-              กำไร/ขาดทุน
-              <input type="number" step="any" value={form.profit_loss} onChange={update('profit_loss')} placeholder="+200 หรือ -100" />
+              Profit/Loss
+              <input type="number" step="any" value={form.profit_loss} onChange={update('profit_loss')} placeholder="+200 or -100" />
             </label>
             <label className="field">
-              ผลลัพธ์
+              Result
               <select value={form.result} onChange={update('result')}>
-                <option value="open">กำลังเปิดอยู่</option>
+                <option value="open">Open</option>
                 <option value="win">Win</option>
                 <option value="loss">Loss</option>
                 <option value="breakeven">Breakeven</option>
               </select>
             </label>
             <label className="field">
-              ระยะเวลาถือ (นาที)
+              Duration Held (Minutes)
               <input type="number" value={form.duration_minutes} onChange={update('duration_minutes')} />
             </label>
           </div>
         </section>
 
         <section className="form-section after">
-          <h2>🟥 วิเคราะห์หลังเทรด</h2>
+          <h2>🟥 After Trading</h2>
           <label className="field">
-            🏆 เหตุผลที่ชนะ
+            Reason for Winning
             <textarea rows={2} value={form.win_reason} onChange={update('win_reason')} />
           </label>
           <label className="field">
-            ❌ เหตุผลที่แพ้
+            Reason for Losing
             <textarea rows={2} value={form.loss_reason} onChange={update('loss_reason')} />
           </label>
           <label className="field">
-            🧠 บทเรียน
+            Lesson Learned
             <textarea rows={2} value={form.lesson} onChange={update('lesson')} />
           </label>
           <label className="field checkbox-field">
             <input type="checkbox" checked={form.followed_plan} onChange={update('followed_plan')} />
-            เข้าเทรดตามแผนที่วางไว้
+            Followed Trading Plan
           </label>
           <label className="field">
-            แท็กข้อผิดพลาด (คั่นด้วย , )
+            Mistake Tags (comma separated)
             <input
               type="text"
               list="mistake-options"
@@ -376,26 +426,26 @@ export default function TradeForm() {
               placeholder="FOMO, Overtrade"
             />
             <datalist id="mistake-options">
-              {MISTAKE_OPTIONS.map((m) => (
+              {availableTags.map((m) => (
                 <option key={m} value={m} />
               ))}
             </datalist>
           </label>
           <label className="field">
-            รูปกราฟหลังปิดเทรด
+            Chart After Trading
             <input type="file" accept="image/*" onChange={(e) => e.target.files[0] && uploadImage(e.target.files[0], 'after')} />
-            {uploadingAfter && <span className="hint">กำลังอัปโหลด...</span>}
+            {uploadingAfter && <span className="hint">Uploading...</span>}
             {form.after_image_url && <img className="preview-img" src={form.after_image_url} alt="after" />}
           </label>
         </section>
 
         <div className="form-actions">
           <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+            {saving ? 'Saving...' : 'Save Trade'}
           </button>
           {editing && (
             <button type="button" className="btn btn-danger" onClick={handleDelete}>
-              ลบเทรดนี้
+              Delete Trade
             </button>
           )}
         </div>
