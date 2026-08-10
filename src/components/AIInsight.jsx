@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react'
 import { askGemini, hasGeminiKey } from '../lib/gemini'
+import { useAuth } from '../context/AuthContext'
 
-/**
- * Renders a very small markdown subset (paragraphs, **bold**, "- " bullet
- * lists, "1. " numbered lists) into JSX.
- */
 function renderInline(text, keyPrefix) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean)
   return parts.map((part, i) => {
@@ -77,17 +74,26 @@ export default function AIInsight({
   disabledHint,
   actionLabel = 'Generate AI Analysis',
 }) {
+  const { profile, incrementAiUsage } = useAuth()
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [isExpanded, setIsExpanded] = useState(true)
+
+  const isPro = profile?.tier === 'pro'
+  const maxAiCalls = isPro ? 8 : 2
+  const currentAiCalls = profile?.ai_usage_count || 0
+  
+  // ✅ คำนวณโควต้าที่เหลือ (เช่น มีสิทธิ์ 2 ใช้ไป 0 เหลือ 2/2 -> ใช้ไป 1 เหลือ 1/2)
+  const remainingQuota = Math.max(0, maxAiCalls - currentAiCalls)
+  const isQuotaEmpty = currentAiCalls >= maxAiCalls
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(cacheKey)
       if (raw) {
         setResult(JSON.parse(raw))
-        setIsExpanded(false) // ✅ พับเก็บอัตโนมัติถ้าโหลดข้อมูลเก่าจาก Cache
+        setIsExpanded(false)
       } else {
         setResult(null)
         setIsExpanded(true)
@@ -100,11 +106,24 @@ export default function AIInsight({
   }, [cacheKey])
 
   const run = async (e) => {
-    if (e) e.stopPropagation() // ป้องกันการกาง/พับ ซ้ำซ้อนตอนกดปุ่ม
+    if (e) e.stopPropagation()
+
+    if (isQuotaEmpty) {
+      setError(`You have reached your daily AI limit (${remainingQuota}/${maxAiCalls}). ${isPro ? 'Please try again tomorrow.' : 'Upgrade to Pro for 8 daily analyses.'}`)
+      setIsExpanded(true)
+      return
+    }
+
     setLoading(true)
     setError('')
-    setIsExpanded(true) // ✅ กางออกเสมอเวลากำลังโหลด
+    setIsExpanded(true)
+    
     try {
+      const canProceed = await incrementAiUsage()
+      if (!canProceed) {
+        throw new Error('Failed to update AI usage quota. Please try again.')
+      }
+
       const prompt = buildPrompt()
       const text = await askGemini(prompt)
       const payload = { text, signature, generatedAt: new Date().toISOString() }
@@ -136,7 +155,13 @@ export default function AIInsight({
         </span>
         
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {/* ข้อความบอกสถานะ พับ/กาง */}
+          {/* ✅ แสดงโควต้าแบบ เหลือ/ทั้งหมด เช่น 2/2 -> 1/2 -> 0/2 */}
+          {!disabled && hasGeminiKey() && (
+            <span style={{ fontSize: '11px', color: isQuotaEmpty ? 'var(--loss)' : 'var(--text-faint)', fontWeight: 600 }}>
+              Quota: {remainingQuota}/{maxAiCalls}
+            </span>
+          )}
+
           {result && !loading && (
             <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600 }}>
               {isExpanded ? '▲ Collapse' : '▼ View Analysis'}
@@ -159,7 +184,6 @@ export default function AIInsight({
         </div>
       </div>
 
-      {/* ควบคุมการแสดงผลเนื้อหาตามค่า isExpanded */}
       {isExpanded && (
         <>
           {disabled ? (

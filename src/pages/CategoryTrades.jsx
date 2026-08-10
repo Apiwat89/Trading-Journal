@@ -9,10 +9,12 @@ const resultLabel = { win: '🟢 WIN', loss: '🔴 LOSS', breakeven: '⚪ BE', o
 
 export default function CategoryTrades() {
   const { categoryId } = useParams()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [category, setCategory] = useState(null)
   const [trades, setTrades] = useState([])
   const [loading, setLoading] = useState(true)
+
+  const isPro = profile?.tier === 'pro'
 
   useEffect(() => {
     const load = async () => {
@@ -22,7 +24,7 @@ export default function CategoryTrades() {
         .from('trades')
         .select('*')
         .eq('category_id', categoryId)
-        .order('traded_at', { ascending: false })
+        .order('traded_at', { ascending: false }) // ✅ เรียงเอาอันล่าสุดขึ้นบนสุด
       setCategory(cat)
       setTrades(trs || [])
       setLoading(false)
@@ -37,14 +39,26 @@ export default function CategoryTrades() {
   const totalPL = trades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0), 0)
 
   const stats = useMemo(() => computeStats(trades), [trades])
-  const aiSignature = `${trades.length}-${totalPL.toFixed(2)}-${winRate}`
+  const aiSignature = `${trades.length}-${totalPL.toFixed(2)}-${winRate}-${isPro ? 'pro' : 'free'}`
 
   const buildCategoryPrompt = () => {
+    // ถ้าเป็น Free Plan ให้วิเคราะห์แค่ข้อมูลภาพรวมสั้นๆ พื้นฐาน
+    if (!isPro) {
+      return [
+        `คุณเป็นโค้ชเทรดมืออาชีพ กำลังอ่านสถิติการเทรดเฉพาะหมวด/สัญลักษณ์ "${category?.name || ''}" ของผู้ใช้แพ็กเกจ Free`,
+        'ตอบเป็นภาษาไทย กระชับ ตรงประเด็น ใช้หัวข้อย่อยเป็นหลัก ไม่ต้องมีคำนำยืดยาว',
+        'โครงสร้างคำตอบ: 1) สรุปภาพรวมของสัญลักษณ์นี้สั้นๆ 2) คำแนะนำเบื้องต้น 2 ข้อในการเทรดหมวดนี้',
+        '--- ข้อมูลสถิติ (Free Plan) ---',
+        statsToPromptText(stats, `หมวด ${category?.name || ''}`),
+      ].filter(Boolean).join('\n\n')
+    }
+
+    // ถ้าเป็น Pro Plan วิเคราะห์เชิงลึกครบถ้วนรวมถึง Strategy ภายในหมวด
     const parts = [
-      `คุณเป็นโค้ชเทรดมืออาชีพ กำลังอ่านสถิติการเทรดเฉพาะหมวด/สัญลักษณ์ "${category?.name || ''}" ของผู้ใช้คนหนึ่ง`,
+      `คุณเป็นโค้ชเทรดมืออาชีพ กำลังอ่านสถิติการเทรดเชิงลึกเฉพาะหมวด/สัญลักษณ์ "${category?.name || ''}" ของผู้ใช้แพ็กเกจ Pro`,
       'ตอบเป็นภาษาไทย กระชับ ใช้หัวข้อย่อยเป็นหลัก ไม่ต้องมีคำนำยืดยาว',
       `โครงสร้างคำตอบ: 1) เทรดเดอร์คนนี้เทรด ${category?.name || 'สัญลักษณ์นี้'} เป็นยังไงบ้าง 2) จุดแข็งที่เห็นจากข้อมูลของหมวดนี้โดยเฉพาะ (เช่น strategy หรือ session ที่ทำได้ดี) 3) จุดอ่อน/ความเสี่ยงที่ควรระวังในหมวดนี้ 4) คำแนะนำที่ทำได้จริง 3 ข้อสำหรับหมวดนี้โดยเฉพาะ`,
-      '--- ข้อมูลสถิติของหมวดนี้ ---',
+      '--- ข้อมูลสถิติเชิงลึกของหมวดนี้ (Pro Plan) ---',
       statsToPromptText(stats, `หมวด ${category?.name || ''}`),
       breakdownToPromptText(stats.byStrategy, 'แยกตาม Strategy ภายในหมวดนี้'),
     ]
@@ -82,7 +96,7 @@ export default function CategoryTrades() {
       {!loading && trades.length > 0 && (
         <AIInsight
           title={`AI analyzes ${category?.name || ''}`}
-          cacheKey={`ai_category_${user?.id || 'anon'}_${categoryId}`}
+          cacheKey={`ai_category_${user?.id || 'anon'}_${categoryId}_${isPro ? 'pro' : 'free'}`}
           signature={aiSignature}
           buildPrompt={buildCategoryPrompt}
           actionLabel="AI analyze"

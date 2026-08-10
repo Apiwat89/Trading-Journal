@@ -754,18 +754,30 @@ input[type='file']::file-selector-button:hover {
 }
 @media (max-width: 640px) {
   .stat-row {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    padding-bottom: 4px;
-    margin-left: -14px;
-    margin-right: -14px;
-    padding-left: 14px;
-    padding-right: 14px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    overflow-x: visible;
   }
   .stat-pill {
-    scroll-snap-align: start;
-    flex: 0 0 auto;
+    min-width: unset;
+    width: 100%;
+    padding: 10px 12px;
+  }
+}
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 640px) {
+  .data-table {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .data-table th,
+  .data-table td {
+    padding: 7px 6px;
   }
 }
 .stat-value {

@@ -3,14 +3,20 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
+const MAX_FREE_CATEGORIES = 3 // กำหนดโควต้าสายฟรี
+
 export default function Categories() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth() // ดึง profile มาเพื่อเช็กแพ็กเกจ
   const [categories, setCategories] = useState([])
   const [counts, setCounts] = useState({})
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [error, setError] = useState('')
+
+  // คำนวณสิทธิ์การใช้งาน
+  const isFree = profile?.tier === 'free'
+  const isLimitReached = isFree && categories.length >= MAX_FREE_CATEGORIES
 
   const load = async () => {
     setLoading(true)
@@ -38,6 +44,13 @@ export default function Categories() {
   const handleCreate = async (e) => {
     e.preventDefault()
     setError('')
+
+    // ดักจับเผื่อผู้ใช้แอบกด Submit
+    if (isLimitReached) {
+      setError(`Free plan is limited to ${MAX_FREE_CATEGORIES} categories. Please upgrade to Pro.`)
+      return
+    }
+
     if (!newName.trim()) return
 
     const { error } = await supabase
@@ -54,7 +67,7 @@ export default function Categories() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this category? All trades in this category will also be deleted.')) return
+    if (!window.confirm('Delete this category? All trades in this category will also be deleted.')) return
     await supabase.from('categories').delete().eq('id', id)
     load()
   }
@@ -66,23 +79,42 @@ export default function Categories() {
         <p className="page-sub">Organize your trades by symbols you create yourself, e.g., XAUUSD, EURUSD, PTT</p>
       </div>
 
-      <form onSubmit={handleCreate} className="inline-form">
-        <input
-          type="text"
-          placeholder="Category name, e.g., XAUUSD"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-        />
-        <input
-          type="text"
-          placeholder="Description (optional)"
-          value={newDesc}
-          onChange={(e) => setNewDesc(e.target.value)}
-        />
-        <button type="submit" className="btn btn-primary">
-          + Add Category
-        </button>
-      </form>
+      {/* ซ่อน/ล็อก ฟอร์มสร้างหมวดหมู่หากโควต้าเต็ม */}
+      {isLimitReached ? (
+        <div className="panel" style={{ textAlign: 'center', padding: '24px', borderColor: 'var(--gold-glow)' }}>
+          <h3 style={{ color: 'var(--gold)', marginBottom: '8px' }}>Category Limit Reached</h3>
+          <p style={{ color: 'var(--text-dim)', fontSize: '14px', marginBottom: '16px' }}>
+            You have reached the maximum of {MAX_FREE_CATEGORIES} categories on the Free plan. 
+            Upgrade to Pro to create unlimited categories and unlock advanced AI analytics.
+          </p>
+          <Link to="/upgrade">
+            <button className="btn btn-primary">
+              Upgrade to Pro
+            </button>
+          </Link>
+        </div>
+      ) : (
+        <form onSubmit={handleCreate} className="inline-form">
+          <input
+            type="text"
+            placeholder="Category name, e.g., XAUUSD"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            disabled={isLimitReached}
+          />
+          <input
+            type="text"
+            placeholder="Description (optional)"
+            value={newDesc}
+            onChange={(e) => setNewDesc(e.target.value)}
+            disabled={isLimitReached}
+          />
+          <button type="submit" className="btn btn-primary" disabled={isLimitReached}>
+            + Add Category
+          </button>
+        </form>
+      )}
+
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (

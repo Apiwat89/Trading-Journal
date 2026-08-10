@@ -6,6 +6,8 @@ import Dashboard from './pages/Dashboard'
 import Categories from './pages/Categories'
 import CategoryTrades from './pages/CategoryTrades'
 import TradeForm from './pages/TradeForm'
+import Settings from './pages/Settings'
+import Upgrade from './pages/Upgrade'
 
 export default function App() {
   const location = useLocation()
@@ -65,6 +67,22 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <TradeForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/upgrade"
+            element={
+              <ProtectedRoute>
+                <Upgrade />
               </ProtectedRoute>
             }
           />
