@@ -161,6 +161,32 @@ export default function Login() {
               : 'Back to Login'}
           </button>
         </div>
+        {/* --- ปุ่มติดต่อแอดมินผ่าน Line --- */}
+        <div style={{ textAlign: 'center', marginTop: '30px' }}>
+          <a 
+            href="https://line.me/ti/p/~earth123a" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              background: '#06C755', // สีเขียวเอกลักษณ์ของ Line
+              color: '#ffffff',
+              padding: '10px 16px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: '600',
+              textDecoration: 'none',
+              width: '100%',
+              boxShadow: '0 4px 12px rgba(6, 199, 85, 0.25)',
+              transition: 'filter 0.2s ease'
+            }}
+          > 
+            Contact Admin (Line)
+          </a>
+        </div>
       </div>
     </div>
   )
