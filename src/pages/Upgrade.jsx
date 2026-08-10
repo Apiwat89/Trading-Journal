@@ -44,7 +44,7 @@ export default function Upgrade() {
         </div>
       </div>
 
-      {isPro ? (
+    {isPro ? (
         <div className="panel" style={{ textAlign: 'center', padding: '32px', borderColor: 'var(--win)' }}>
           <h3 style={{ color: 'var(--win)', marginBottom: '12px', fontSize: '22px' }}>✨ You are currently on Pro Plan</h3>
           <p style={{ color: 'var(--text-dim)', fontSize: '14px', marginBottom: '20px' }}>
@@ -53,9 +53,9 @@ export default function Upgrade() {
           <Link to="/" className="btn btn-primary">Go to Dashboard</Link>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '20px' }}>
+        <div className="pricing-grid">
           
-          <div className="panel" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div className="panel pricing-card">
             <div>
               <h3 style={{ fontSize: '18px', marginBottom: '8px' }}>Free Plan</h3>
               <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>0 THB <span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-dim)' }}>/ forever</span></div>
@@ -69,7 +69,7 @@ export default function Upgrade() {
             <button className="btn btn-ghost" disabled style={{ width: '100%' }}>Current Plan</button>
           </div>
 
-          <div className="panel" style={{ borderColor: 'var(--gold-glow)', background: 'rgba(212, 175, 55, 0.03)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div className="panel pricing-card pro-card">
             <div>
               <div style={{ display: 'inline-block', background: 'var(--gold)', color: '#000', fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', marginBottom: '8px' }}>POPULAR</div>
               <h3 style={{ fontSize: '18px', marginBottom: '8px', color: 'var(--gold)' }}>Pro Plan</h3>
@@ -77,7 +77,7 @@ export default function Upgrade() {
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px 0', display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-main)', fontSize: '14px' }}>
                 <li>✓ <strong>Unlimited</strong> Categories</li>
                 <li>✓ Max 120 Trades / month</li>
-                <li>✓ AI Analysis (<strong>8 times / day</strong>) <strong>Pro Analysis</strong></li>
+                <li>✓ AI Analysis (8 times / day) — <strong>Pro Analysis</strong></li>
                 <li>✓ Full Advanced Dashboard & Deep Analytics</li>
               </ul>
             </div>
