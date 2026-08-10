@@ -3,6 +3,15 @@ import { supabase } from '../lib/supabaseClient'
 
 const AuthContext = createContext(null)
 
+// ฟังก์ชันสำหรับแปลงวันที่เป็น พิกัดเวลาท้องถิ่น 'YYYY-MM-DD' (แก้ปัญหาติดเวลา UTC)
+function getLocalDateString() {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
@@ -25,8 +34,8 @@ export function AuthProvider({ children }) {
           .single()
 
         if (data && mounted) {
-          // เช็กว่าข้ามวันหรือยัง ถ้าข้ามวันแล้วให้รีเซ็ตโควต้า AI กลับเป็น 0
-          const today = new Date().toISOString().split('T')[0]
+          // ใช้ฟังก์ชันดึงวันที่ตามเวลาท้องถิ่นของเครื่องผู้ใช้
+          const today = getLocalDateString()
           let currentProfile = data
 
           if (data.last_ai_reset_date !== today) {
@@ -125,7 +134,7 @@ export function AuthProvider({ children }) {
     profile,
     loading,
     incrementAiUsage,
-    getProTimeRemaining, // ส่งฟังก์ชันเช็กเวลาที่เหลือออกไปให้หน้าอื่นๆ ใช้
+    getProTimeRemaining,
     signOut: () => supabase.auth.signOut(),
   }
 
