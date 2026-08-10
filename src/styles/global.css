@@ -840,6 +840,12 @@ input[type='file']::file-selector-button:hover {
     grid-template-columns: 1fr;
   }
 }
+/* แก้ไขหน้า Upgrade Plan บนมือถือไม่ให้การ์ดบีบชนกัน */
+@media (max-width: 768px) {
+  .page-narrow div[style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+  }
+}
 
 .table-expand-btn {
   display: block;
