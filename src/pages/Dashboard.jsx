@@ -148,9 +148,36 @@ export default function Dashboard() {
   const [trades, setTrades] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
-  const [dateFilter, setDateFilter] = useState('all') // ตัวกรองช่วงเวลา
+  const [dateFilter, setDateFilter] = useState('all')
 
   const isPro = profile?.tier === 'pro'
+
+  // --- ส่วนเพิ่มใหม่: เช็กว่าถ้ากลับมาจากหน้าจ่ายเงินสำเร็จ ให้บันทึกเวลา Pro ลง Supabase ทันที ---
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search)
+    if (queryParams.get('upgrade') === 'success' && user) {
+      const updateProStatus = async () => {
+        // คำนวณเวลาหมดอายุล่วงหน้า 30 วันจากปัจจุบัน
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            tier: 'pro',
+            pro_expires_at: expiresAt
+          })
+          .eq('id', user.id)
+
+        if (!error) {
+          // ล้าง URL query ออกแล้วรีเฟรชหน้าเพื่อให้สิทธิ์ Pro อัปเดตทันที
+          window.history.replaceState({}, document.title, window.location.pathname)
+          window.location.reload()
+        }
+      }
+      updateProStatus()
+    }
+  }, [user])
+  // --------------------------------------------------------------------------------
 
   useEffect(() => {
     const load = async () => {
@@ -235,7 +262,6 @@ export default function Dashboard() {
           <p className="page-sub">Overall Trading Performance & Advanced Analytics</p>
         </div>
 
-        {/* ข้อ 5: Quick Date Filter (ตัวกรองช่วงเวลา) */}
         <div style={{ display: 'flex', gap: '6px', background: 'var(--surface-2)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border)' }}>
           {['all', 'month', 'week', 'today'].map((f) => (
             <button
@@ -267,7 +293,6 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          {/* แถวสถิติหลัก */}
           <div className="stat-row">
             <div className="stat-pill">
               <span className="stat-value">{stats.totalTrades}</span>
@@ -285,17 +310,14 @@ export default function Dashboard() {
               <span className="stat-value">{stats.profitFactor === Infinity ? '∞' : stats.profitFactor}</span>
               <span className="stat-label">Profit factor</span>
             </div>
-            {/* ข้อ 1: Expectancy */}
             <div className={`stat-pill ${stats.expectancy >= 0 ? 'positive' : 'negative'}`}>
               <span className="stat-value">{pl(stats.expectancy)}</span>
               <span className="stat-label">Expectancy / Trade</span>
             </div>
-            {/* ข้อ 2: Max Drawdown */}
             <div className="stat-pill negative">
               <span className="stat-value">-{stats.maxDrawdown.toFixed(2)}</span>
               <span className="stat-label">Max Drawdown</span>
             </div>
-            {/* ข้อ 3: Streaks */}
             <div className="stat-pill">
               <span className="stat-value" style={{ color: 'var(--win)' }}>{stats.maxWinStreak}W</span>
               <span className="stat-label">Max Win Streak</span>

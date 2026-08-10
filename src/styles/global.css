@@ -1396,3 +1396,68 @@ a.compare-card:hover {
     gap: 16px;
   }
 }
+
+/* ---------- Responsive Navbar Pro & Upgrade Styles ---------- */
+.navbar-pro-container {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  margin-right: 12px;
+}
+
+.navbar-pro-badge {
+  background: var(--gold-dim);
+  border: 1px solid var(--gold-glow);
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--gold-2);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.navbar-pro-badge .pro-time {
+  opacity: 0.85;
+  font-size: 11px;
+}
+
+.navbar-upgrade-btn {
+  font-size: 12px;
+  padding: 5px 12px;
+  min-height: 34px;
+  background: var(--gold);
+  color: #000;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* ปรับแต่งเมื่อเปิดผ่านจอมือถือ (<= 640px) */
+@media (max-width: 640px) {
+  .navbar {
+    justify-content: space-between;
+    padding: 10px 14px;
+  }
+
+  .navbar-pro-container {
+    margin-left: unset;
+    margin-right: unset;
+  }
+
+  .navbar-pro-badge {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .navbar-pro-badge .pro-time {
+    font-size: 10px;
+  }
+
+  .navbar-upgrade-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    min-height: 30px;
+  }
+}

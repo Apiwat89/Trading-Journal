@@ -6,7 +6,7 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
-  const [profile, setProfile] = useState(null) // เพิ่ม state สำหรับเก็บ profile
+  const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -25,8 +25,10 @@ export function AuthProvider({ children }) {
           .single()
 
         if (data && mounted) {
-          // เช็กว่าข้ามวันหรือยัง ถัาข้ามวันแล้วให้รีเซ็ตโควต้า AI กลับเป็น 0
+          // เช็กว่าข้ามวันหรือยัง ถ้าข้ามวันแล้วให้รีเซ็ตโควต้า AI กลับเป็น 0
           const today = new Date().toISOString().split('T')[0]
+          let currentProfile = data
+
           if (data.last_ai_reset_date !== today) {
             const { data: updatedData } = await supabase
               .from('profiles')
@@ -34,10 +36,30 @@ export function AuthProvider({ children }) {
               .eq('id', currentSession.user.id)
               .select()
               .single()
-            setProfile(updatedData || data)
-          } else {
-            setProfile(data)
+            if (updatedData) currentProfile = updatedData
           }
+
+          // ---------------------------------------------------------
+          // ระบบเช็กวันหมดอายุ Pro อัตโนมัติ (ถ้าหมดเวลา ให้ดรอปกลับเป็น free)
+          // ---------------------------------------------------------
+          if (currentProfile.tier === 'pro' && currentProfile.pro_expires_at) {
+            const expiresAt = new Date(currentProfile.pro_expires_at)
+            const now = new Date()
+
+            if (now >= expiresAt) {
+              // ถ้าหมดเวลาแล้ว -> อัปเดตฐานข้อมูลกลับเป็น free ทันที
+              const { data: expiredData } = await supabase
+                .from('profiles')
+                .update({ tier: 'free', pro_expires_at: null })
+                .eq('id', currentSession.user.id)
+                .select()
+                .single()
+              
+              if (expiredData) currentProfile = expiredData
+            }
+          }
+
+          setProfile(currentProfile)
         }
       } else {
         if (mounted) setProfile(null)
@@ -58,6 +80,26 @@ export function AuthProvider({ children }) {
       listener.subscription.unsubscribe()
     }
   }, [])
+
+  // ฟังก์ชันคำนวณเวลา Pro ที่เหลืออยู่แบบเรียลไทม์
+  const getProTimeRemaining = () => {
+    if (!profile || profile.tier !== 'pro' || !profile.pro_expires_at) return null
+
+    const now = new Date()
+    const expiresAt = new Date(profile.pro_expires_at)
+    const diffMs = expiresAt - now
+
+    if (diffMs <= 0) return 'Expired'
+
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+
+    if (diffDays > 0) {
+      return `${diffDays}d ${diffHours}h left`
+    } else {
+      return `${diffHours}h left`
+    }
+  }
 
   // ฟังก์ชันสำหรับเรียกใช้เวลาที่กดใช้ AI เพื่อเพิ่มจำนวนนับทีละ 1
   const incrementAiUsage = async () => {
@@ -80,9 +122,10 @@ export function AuthProvider({ children }) {
   const value = {
     session,
     user,
-    profile, // ส่ง profile ออกไปให้หน้าอื่นใช้ได้
+    profile,
     loading,
-    incrementAiUsage, // ส่งฟังก์ชันนับการใช้ AI ออกไป
+    incrementAiUsage,
+    getProTimeRemaining, // ส่งฟังก์ชันเช็กเวลาที่เหลือออกไปให้หน้าอื่นๆ ใช้
     signOut: () => supabase.auth.signOut(),
   }
 
