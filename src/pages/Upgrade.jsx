@@ -77,7 +77,7 @@ export default function Upgrade() {
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px 0', display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-main)', fontSize: '14px' }}>
                 <li>✓ <strong>Unlimited</strong> Categories</li>
                 <li>✓ Max 120 Trades / month</li>
-                <li>✓ AI Analysis (<strong>8 times / day</strong>)</li>
+                <li>✓ AI Analysis (<strong>8 times / day</strong>) <strong>Pro Analysis</strong></li>
                 <li>✓ Full Advanced Dashboard & Deep Analytics</li>
               </ul>
             </div>
