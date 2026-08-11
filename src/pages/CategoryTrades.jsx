@@ -9,28 +9,46 @@ const resultLabel = { win: '🟢 WIN', loss: '🔴 LOSS', breakeven: '⚪ BE', o
 
 export default function CategoryTrades() {
   const { categoryId } = useParams()
-  const { user, profile } = useAuth()
+  const { user, profile, limits } = useAuth()
   const [category, setCategory] = useState(null)
   const [trades, setTrades] = useState([])
   const [loading, setLoading] = useState(true)
+  const [isLocked, setIsLocked] = useState(false)
 
-  const isPro = profile?.tier === 'pro'
+  const isPro = profile?.tier === 'pro' || profile?.tier === 'pro_premium'
 
   useEffect(() => {
     const load = async () => {
       setLoading(true)
+      
+      if (user) {
+        const { data: allCats } = await supabase
+          .from('categories')
+          .select('id')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true })
+        
+        const catIndex = allCats?.findIndex(c => c.id === categoryId)
+        if (catIndex !== -1 && catIndex >= limits.categories) {
+          setIsLocked(true)
+        } else {
+          setIsLocked(false)
+        }
+      }
+
       const { data: cat } = await supabase.from('categories').select('*').eq('id', categoryId).single()
       const { data: trs } = await supabase
         .from('trades')
         .select('*')
         .eq('category_id', categoryId)
-        .order('traded_at', { ascending: false }) // ✅ เรียงเอาอันล่าสุดขึ้นบนสุด
+        .order('traded_at', { ascending: false })
+        
       setCategory(cat)
       setTrades(trs || [])
       setLoading(false)
     }
     load()
-  }, [categoryId])
+  }, [categoryId, user, limits.categories])
 
   const wins = trades.filter((t) => t.result === 'win').length
   const losses = trades.filter((t) => t.result === 'loss').length
@@ -42,25 +60,23 @@ export default function CategoryTrades() {
   const aiSignature = `${trades.length}-${totalPL.toFixed(2)}-${winRate}-${isPro ? 'pro' : 'free'}`
 
   const buildCategoryPrompt = () => {
-    // ถ้าเป็น Free Plan ให้วิเคราะห์แค่ข้อมูลภาพรวมสั้นๆ พื้นฐาน
     if (!isPro) {
       return [
-        `คุณเป็นโค้ชเทรดมืออาชีพ กำลังอ่านสถิติการเทรดเฉพาะหมวด/สัญลักษณ์ "${category?.name || ''}" ของผู้ใช้แพ็กเกจ Free`,
-        'ตอบเป็นภาษาไทย กระชับ ตรงประเด็น ใช้หัวข้อย่อยเป็นหลัก ไม่ต้องมีคำนำยืดยาว',
-        'โครงสร้างคำตอบ: 1) สรุปภาพรวมของสัญลักษณ์นี้สั้นๆ 2) คำแนะนำเบื้องต้น 2 ข้อในการเทรดหมวดนี้',
-        '--- ข้อมูลสถิติ (Free Plan) ---',
-        statsToPromptText(stats, `หมวด ${category?.name || ''}`),
+        `You are a professional trading coach reviewing the trading statistics for the category/symbol "${category?.name || ''}" of a Free tier user.`,
+        'Provide a concise response using bullet points. Do not include a long introduction.',
+        'Structure: 1) Brief overview of this symbol 2) 2 basic recommendations for trading this category.',
+        '--- Statistics (Free Plan) ---',
+        statsToPromptText(stats, `Category ${category?.name || ''}`),
       ].filter(Boolean).join('\n\n')
     }
 
-    // ถ้าเป็น Pro Plan วิเคราะห์เชิงลึกครบถ้วนรวมถึง Strategy ภายในหมวด
     const parts = [
-      `คุณเป็นโค้ชเทรดมืออาชีพ กำลังอ่านสถิติการเทรดเชิงลึกเฉพาะหมวด/สัญลักษณ์ "${category?.name || ''}" ของผู้ใช้แพ็กเกจ Pro`,
-      'ตอบเป็นภาษาไทย กระชับ ใช้หัวข้อย่อยเป็นหลัก ไม่ต้องมีคำนำยืดยาว',
-      `โครงสร้างคำตอบ: 1) เทรดเดอร์คนนี้เทรด ${category?.name || 'สัญลักษณ์นี้'} เป็นยังไงบ้าง 2) จุดแข็งที่เห็นจากข้อมูลของหมวดนี้โดยเฉพาะ (เช่น strategy หรือ session ที่ทำได้ดี) 3) จุดอ่อน/ความเสี่ยงที่ควรระวังในหมวดนี้ 4) คำแนะนำที่ทำได้จริง 3 ข้อสำหรับหมวดนี้โดยเฉพาะ`,
-      '--- ข้อมูลสถิติเชิงลึกของหมวดนี้ (Pro Plan) ---',
-      statsToPromptText(stats, `หมวด ${category?.name || ''}`),
-      breakdownToPromptText(stats.byStrategy, 'แยกตาม Strategy ภายในหมวดนี้'),
+      `You are a professional trading coach reviewing the in-depth trading statistics for the category/symbol "${category?.name || ''}" of a Pro tier user.`,
+      'Provide a concise response using bullet points. Do not include a long introduction.',
+      `Structure: 1) How is the trader performing with ${category?.name || 'this symbol'}? 2) Strengths seen in this category (e.g., strategy or session) 3) Weaknesses/Risks to watch out for 4) 3 actionable recommendations specifically for this category.`,
+      '--- In-depth Statistics (Pro Plan) ---',
+      statsToPromptText(stats, `Category ${category?.name || ''}`),
+      breakdownToPromptText(stats.byStrategy, 'Breakdown by Strategy within this category'),
     ]
     return parts.filter(Boolean).join('\n\n')
   }
@@ -70,13 +86,26 @@ export default function CategoryTrades() {
       <div className="page-header">
         <div>
           <Link to="/categories" className="breadcrumb">← All Categories</Link>
-          <h1>{category?.name || '...'}</h1>
+          <h1>{category?.name || '...'} {isLocked && '🔒'}</h1>
           {category?.description && <p className="page-sub">{category.description}</p>}
         </div>
-        <Link to={`/categories/${categoryId}/new`} className="btn btn-primary page-header-action">
-          + Record New Trade
-        </Link>
+        {!isLocked && (
+          <Link to={`/categories/${categoryId}/new`} className="btn btn-primary page-header-action">
+            + Record New Trade
+          </Link>
+        )}
       </div>
+
+      {isLocked && (
+        <div className="panel" style={{ backgroundColor: 'rgba(255, 82, 82, 0.1)', borderColor: 'var(--loss)', marginBottom: '24px' }}>
+          <h3 style={{ color: 'var(--loss)', marginBottom: '8px' }}>🔒 Category Locked</h3>
+          <p style={{ color: 'var(--text)', fontSize: '14px', marginBottom: '16px' }}>
+            This category is locked because you have exceeded the {limits.categories} category limit of the {limits.name} plan.
+            You can still view past trades, but you cannot record new ones.
+          </p>
+          {!isPro && <Link to="/upgrade"><button className="btn btn-primary">Upgrade to Pro to Unlock</button></Link>}
+        </div>
+      )}
 
       <div className="stat-row">
         <div className="stat-pill">
@@ -100,6 +129,8 @@ export default function CategoryTrades() {
           signature={aiSignature}
           buildPrompt={buildCategoryPrompt}
           actionLabel="AI analyze"
+          disabled={isLocked} // 🌟 บล็อก AI ถ้าหมวดนี้โดนล็อก
+          disabledHint="AI analysis is disabled for locked categories. Upgrade to Pro to unlock."
         />
       )}
 
@@ -129,7 +160,7 @@ export default function CategoryTrades() {
                   {t.profit_loss ?? 0}
                 </span>
                 <span className="trade-card-date">
-                  {new Date(t.traded_at).toLocaleDateString('th-TH')}
+                  {new Date(t.traded_at).toLocaleDateString('en-US')}
                 </span>
               </div>
             </Link>
@@ -137,9 +168,11 @@ export default function CategoryTrades() {
         </div>
       )}
 
-      <Link to={`/categories/${categoryId}/new`} className="fab" aria-label="Record New Trade">
-        +
-      </Link>
+      {!isLocked && (
+        <Link to={`/categories/${categoryId}/new`} className="fab" aria-label="Record New Trade">
+          +
+        </Link>
+      )}
     </div>
   )
-}
+} 

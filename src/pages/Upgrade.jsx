@@ -4,11 +4,11 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
 export default function Upgrade() {
-  const { user, profile } = useAuth()
+  const { user, profile, limits } = useAuth()
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
-  const isPro = profile?.tier === 'pro'
+  const currentTier = profile?.tier || 'free'
 
   const handleCheckout = async () => {
     if (!user) return
@@ -16,13 +16,11 @@ export default function Upgrade() {
     setMessage('')
 
     try {
-      // เรียกใช้งาน Supabase Edge Function เพื่อสร้าง Checkout Session
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
         body: { userId: user.id, email: user.email },
       })
 
       if (error) throw error
-      // ถ้า Edge Function ส่ง url กลับมา ให้พาผู้ใช้พุ่งไปหน้าจ่ายเงินของ Stripe ได้เลย
       if (data && data.url) {
         window.location.href = data.url
       } else {
@@ -35,68 +33,78 @@ export default function Upgrade() {
   }
 
   return (
-    <div className="page page-narrow">
-      <div className="page-header">
-        <div>
-          <Link to="/" className="breadcrumb">← Back to Dashboard</Link>
-          <h1>Upgrade Plan</h1>
-          <p className="page-sub">Unlock unlimited potential and advanced AI analytics for your trading journey.</p>
-        </div>
+    <div className="page" style={{ maxWidth: '960px', margin: '0 auto' }}>
+      <div className="page-header" style={{ display: 'block', textAlign: 'center', marginBottom: '40px' }}>
+        <Link to="/" className="breadcrumb" style={{ justifyContent: 'center', marginBottom: '16px' }}>← Back to Dashboard</Link>
+        <h1>Upgrade Your Plan</h1>
+        <p className="page-sub">Choose the right plan to accelerate your trading journey.</p>
       </div>
 
-    {isPro ? (
-        <div className="panel" style={{ textAlign: 'center', padding: '32px', borderColor: 'var(--win)' }}>
-          <h3 style={{ color: 'var(--win)', marginBottom: '12px', fontSize: '22px' }}>✨ You are currently on Pro Plan</h3>
-          <p style={{ color: 'var(--text-dim)', fontSize: '14px', marginBottom: '20px' }}>
-            Enjoy unlimited categories, unlimited monthly trades, and full AI insights!
-          </p>
-          <Link to="/" className="btn btn-primary">Go to Dashboard</Link>
+      <div className="pricing-grid">
+        
+        {/* Free Plan */}
+        <div className="panel pricing-card" style={{ opacity: currentTier === 'free' ? 1 : 0.7 }}>
+          <div>
+            <h3 style={{ fontSize: '18px', marginBottom: '8px' }}>Starter (Free)</h3>
+            <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>0 THB <span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-dim)' }}>/ month</span></div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px 0', display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-dim)', fontSize: '14px' }}>
+              <li>✓ Record up to 15 trades / month</li>
+              <li>✓ Create up to 2 categories</li>
+              <li>✓ Basic AI trade summaries (1 time / day)</li>
+              <li>✓ Basic statistical overview</li>
+              <li>✓ Attach 2 images / trade</li>
+            </ul>
+          </div>
+          {currentTier === 'free' && <button className="btn btn-ghost" disabled style={{ width: '100%' }}>Current Plan</button>}
         </div>
-      ) : (
-        <div className="pricing-grid">
-          
-          <div className="panel pricing-card">
-            <div>
-              <h3 style={{ fontSize: '18px', marginBottom: '8px' }}>Free Plan</h3>
-              <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>0 THB <span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-dim)' }}>/ forever</span></div>
-              <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px 0', display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-dim)', fontSize: '14px' }}>
-                <li>✓ Max 3 Categories</li>
-                <li>✓ Max 20 Trades / month</li>
-                <li>✓ AI Analysis (2 times / day)</li>
-                <li>✓ Basic Dashboard & Equity Curve</li>
-              </ul>
-            </div>
-            <button className="btn btn-ghost" disabled style={{ width: '100%' }}>Current Plan</button>
+
+        {/* Pro Plan */}
+        <div className="panel pricing-card pro-card">
+          <div>
+            <div style={{ display: 'inline-block', background: 'var(--gold)', color: '#000', fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', marginBottom: '8px' }}>RECOMMENDED</div>
+            <h3 style={{ fontSize: '18px', marginBottom: '8px', color: 'var(--gold)' }}>Pro Plan</h3>
+            <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>79 THB <span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-dim)' }}>/ month</span></div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px 0', display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-main)', fontSize: '14px' }}>
+              <li>✓ Record up to 120 trades / month</li>
+              <li>✓ Create up to 10 categories</li>
+              <li>✓ Advanced AI analysis (5 times / day)</li>
+              <li>✓ Unlock all advanced stats</li>
+              <li>✓ Expanded storage to 4 images / trade</li>
+            </ul>
           </div>
 
-          <div className="panel pricing-card pro-card">
-            <div>
-              <div style={{ display: 'inline-block', background: 'var(--gold)', color: '#000', fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', marginBottom: '8px' }}>POPULAR</div>
-              <h3 style={{ fontSize: '18px', marginBottom: '8px', color: 'var(--gold)' }}>Pro Plan</h3>
-              <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>35 THB <span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-dim)' }}>/ month</span></div>
-              <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px 0', display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-main)', fontSize: '14px' }}>
-                <li>✓ <strong>Unlimited</strong> Categories</li>
-                <li>✓ Max 120 Trades / month</li>
-                <li>✓ AI Analysis (8 times / day) — <strong>Pro Analysis</strong></li>
-                <li>✓ Full Advanced Dashboard & Deep Analytics</li>
-              </ul>
-            </div>
-
-            <div>
-              {message && <div className="alert alert-error" style={{ marginBottom: '12px' }}>{message}</div>}
-              <button 
-                className="btn btn-primary" 
-                style={{ width: '100%', background: 'var(--gold)', color: '#000', fontWeight: 'bold' }}
-                onClick={handleCheckout}
-                disabled={loading}
-              >
-                {loading ? 'Connecting...' : 'Pay'} 
+          <div>
+            {message && <div className="alert alert-error" style={{ marginBottom: '12px' }}>{message}</div>}
+            {currentTier === 'pro' ? (
+              <button className="btn" disabled style={{ width: '100%', background: 'var(--gold)', color: '#000' }}>Active</button>
+            ) : (
+              <button className="btn btn-primary" style={{ width: '100%', background: 'var(--gold)', color: '#000', fontWeight: 'bold' }} onClick={handleCheckout} disabled={loading || currentTier === 'pro_premium'}>
+                {loading ? 'Connecting...' : 'Upgrade to Pro'} 
               </button>
-            </div>
+            )}
           </div>
-
         </div>
-      )}
+
+        {/* Pro Premium Plan */}
+        <div className="panel pricing-card" style={{ borderColor: 'var(--ai-border)', background: 'linear-gradient(160deg, rgba(155, 140, 251, 0.05), transparent)' }}>
+          <div>
+            <h3 style={{ fontSize: '18px', marginBottom: '8px', color: 'var(--ai-2)' }}>Pro Premium</h3>
+            <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>199 THB <span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-dim)' }}>/ month</span></div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px 0', display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-dim)', fontSize: '14px' }}>
+              <li>✓ Record up to 500 trades / month</li>
+              <li>✓ Unlimited categories</li>
+              <li>✓ Deep AI analysis (20 times / day)</li>
+              <li>✓ Unlock all advanced stats</li>
+              <li>✓ <strong style={{ color: 'var(--ai-2)' }}>AI Vision (Reads charts from images)</strong></li>
+              <li>✓ Expanded storage to 8 images / trade</li>
+            </ul>
+          </div>
+          <button className="btn btn-ai" disabled style={{ width: '100%', opacity: 0.7, cursor: 'not-allowed' }}>
+            Coming Soon...
+          </button>
+        </div>
+
+      </div>
     </div>
   )
 }

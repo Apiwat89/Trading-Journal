@@ -3,10 +3,8 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
-const MAX_FREE_CATEGORIES = 3 // กำหนดโควต้าสายฟรี
-
 export default function Categories() {
-  const { user, profile } = useAuth() // ดึง profile มาเพื่อเช็กแพ็กเกจ
+  const { user, profile, limits } = useAuth() 
   const [categories, setCategories] = useState([])
   const [counts, setCounts] = useState({})
   const [loading, setLoading] = useState(true)
@@ -14,16 +12,16 @@ export default function Categories() {
   const [newDesc, setNewDesc] = useState('')
   const [error, setError] = useState('')
 
-  // คำนวณสิทธิ์การใช้งาน
-  const isFree = profile?.tier === 'free'
-  const isLimitReached = isFree && categories.length >= MAX_FREE_CATEGORIES
+  const isFree = profile?.tier === 'free' || !profile?.tier
+  const isLimitReached = categories.length >= limits.categories
 
   const load = async () => {
     setLoading(true)
+    // 🌟 เปลี่ยนเป็น ascending: true (เก่าสุดอยู่บน จะได้ไม่โดนล็อก)
     const { data: cats } = await supabase
       .from('categories')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: true }) 
 
     const { data: trades } = await supabase.from('trades').select('category_id')
 
@@ -45,25 +43,18 @@ export default function Categories() {
     e.preventDefault()
     setError('')
 
-    // ดักจับเผื่อผู้ใช้แอบกด Submit
     if (isLimitReached) {
-      setError(`Free plan is limited to ${MAX_FREE_CATEGORIES} categories. Please upgrade to Pro.`)
+      setError(`${limits.name} plan is limited to ${limits.categories} categories. Please upgrade.`)
       return
     }
-
     if (!newName.trim()) return
 
     const { error } = await supabase
       .from('categories')
       .insert({ user_id: user.id, name: newName.trim(), description: newDesc.trim() || null })
 
-    if (error) {
-      setError(error.message)
-      return
-    }
-    setNewName('')
-    setNewDesc('')
-    load()
+    if (error) setError(error.message)
+    else { setNewName(''); setNewDesc(''); load() }
   }
 
   const handleDelete = async (id) => {
@@ -72,46 +63,29 @@ export default function Categories() {
     load()
   }
 
+  // 🌟 แบ่ง Categories เป็น 2 กลุ่ม (ใช้ได้ กับ โดนล็อก)
+  const activeCategories = categories.slice(0, limits.categories)
+  const lockedCategories = categories.slice(limits.categories)
+
   return (
     <div className="page">
       <div className="page-header">
         <h1>Categories</h1>
-        <p className="page-sub">Organize your trades by symbols you create yourself, e.g., XAUUSD, EURUSD, PTT</p>
+        <p className="page-sub">Organize your trades by symbols you create yourself</p>
       </div>
 
-      {/* ซ่อน/ล็อก ฟอร์มสร้างหมวดหมู่หากโควต้าเต็ม */}
       {isLimitReached ? (
         <div className="panel" style={{ textAlign: 'center', padding: '24px', borderColor: 'var(--gold-glow)' }}>
           <h3 style={{ color: 'var(--gold)', marginBottom: '8px' }}>Category Limit Reached</h3>
           <p style={{ color: 'var(--text-dim)', fontSize: '14px', marginBottom: '16px' }}>
-            You have reached the maximum of {MAX_FREE_CATEGORIES} categories on the Free plan. 
-            Upgrade to Pro to create unlimited categories and unlock advanced AI analytics.
+            You have reached the maximum of {limits.categories} categories on the {limits.name} plan. 
           </p>
-          <Link to="/upgrade">
-            <button className="btn btn-primary">
-              Upgrade to Pro
-            </button>
-          </Link>
+          {isFree && <Link to="/upgrade"><button className="btn btn-primary">Upgrade to Pro</button></Link>}
         </div>
       ) : (
         <form onSubmit={handleCreate} className="inline-form">
-          <input
-            type="text"
-            placeholder="Category name, e.g., XAUUSD"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            disabled={isLimitReached}
-          />
-          <input
-            type="text"
-            placeholder="Description (optional)"
-            value={newDesc}
-            onChange={(e) => setNewDesc(e.target.value)}
-            disabled={isLimitReached}
-          />
-          <button type="submit" className="btn btn-primary" disabled={isLimitReached}>
-            + Add Category
-          </button>
+          <input type="text" placeholder="Category name, e.g., XAUUSD" value={newName} onChange={(e) => setNewName(e.target.value)} disabled={isLimitReached} />
+          <button type="submit" className="btn btn-primary" disabled={isLimitReached}>+ Add Category</button>
         </form>
       )}
 
@@ -122,21 +96,41 @@ export default function Categories() {
       ) : categories.length === 0 ? (
         <div className="empty-state">No categories yet — add your first category above</div>
       ) : (
-        <div className="category-grid">
-          {categories.map((c) => (
-            <div key={c.id} className="category-card">
-              <Link to={`/categories/${c.id}`} className="category-card-main">
-                <div className="category-card-name">{c.name}</div>
-                {c.description && <div className="category-card-desc">{c.description}</div>}
-                <div className="category-card-count">{counts[c.id] || 0} trades</div>
-              </Link>
-              <button className="btn btn-ghost btn-small" onClick={() => handleDelete(c.id)}>
-                Delete
-              </button>
-            </div>
-          ))}
-        </div>
+        <>
+          {/* หมวดหมู่ที่ใช้งานได้ */}
+          <div className="category-grid" style={{ marginBottom: '32px' }}>
+            {activeCategories.map((c) => (
+              <div key={c.id} className="category-card">
+                <Link to={`/categories/${c.id}`} className="category-card-main">
+                  <div className="category-card-name">{c.name}</div>
+                  <div className="category-card-count">{counts[c.id] || 0} trades</div>
+                </Link>
+                <button className="btn btn-ghost btn-small" onClick={() => handleDelete(c.id)}>Delete</button>
+              </div>
+            ))}
+          </div>
+
+          {/* หมวดหมู่ที่โดนล็อก (ถ้ามี) */}
+          {lockedCategories.length > 0 && (
+            <>
+              <h2 style={{ fontSize: '16px', color: 'var(--text-dim)', borderBottom: '1px solid var(--border)', paddingBottom: '8px', marginBottom: '16px' }}>
+                🔒 Locked Categories (Upgrade to Pro to unlock)
+              </h2>
+              <div className="category-grid">
+                {lockedCategories.map((c) => (
+                  <div key={c.id} className="category-card" style={{ opacity: 0.6, filter: 'grayscale(100%)', borderColor: 'var(--border-strong)' }}>
+                    <Link to={`/categories/${c.id}`} className="category-card-main">
+                      <div className="category-card-name">🔒 {c.name}</div>
+                      <div className="category-card-count">{counts[c.id] || 0} trades</div>
+                    </Link>
+                    <button className="btn btn-ghost btn-small" onClick={() => handleDelete(c.id)}>Delete</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   )
-}
+} 

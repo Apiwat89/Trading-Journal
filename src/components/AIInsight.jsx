@@ -74,17 +74,20 @@ export default function AIInsight({
   disabledHint,
   actionLabel = 'Generate AI Analysis',
 }) {
-  const { profile, incrementAiUsage } = useAuth()
+  // 🌟 ดึง limits ออกมาจาก useAuth() เพื่อใช้โควต้าจากส่วนกลาง
+  const { profile, limits, incrementAiUsage } = useAuth() 
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [isExpanded, setIsExpanded] = useState(true)
 
-  const isPro = profile?.tier === 'pro'
-  const maxAiCalls = isPro ? 8 : 2
+  const isFree = profile?.tier === 'free' || !profile?.tier
+  
+  // 🌟 เปลี่ยนมาใช้โควต้าจาก limits.ai แทนการ Hardcode
+  const maxAiCalls = limits.ai 
   const currentAiCalls = profile?.ai_usage_count || 0
   
-  // ✅ คำนวณโควต้าที่เหลือ (เช่น มีสิทธิ์ 2 ใช้ไป 0 เหลือ 2/2 -> ใช้ไป 1 เหลือ 1/2)
+  // คำนวณโควต้าที่เหลือ
   const remainingQuota = Math.max(0, maxAiCalls - currentAiCalls)
   const isQuotaEmpty = currentAiCalls >= maxAiCalls
 
@@ -109,7 +112,7 @@ export default function AIInsight({
     if (e) e.stopPropagation()
 
     if (isQuotaEmpty) {
-      setError(`You have reached your daily AI limit (${remainingQuota}/${maxAiCalls}). ${isPro ? 'Please try again tomorrow.' : 'Upgrade to Pro for 8 daily analyses.'}`)
+      setError(`You have reached your daily AI limit (${remainingQuota}/${maxAiCalls}). ${isFree ? 'Upgrade to Pro for more daily analyses.' : 'Please try again tomorrow.'}`)
       setIsExpanded(true)
       return
     }
@@ -155,7 +158,6 @@ export default function AIInsight({
         </span>
         
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {/* ✅ แสดงโควต้าแบบ เหลือ/ทั้งหมด เช่น 2/2 -> 1/2 -> 0/2 */}
           {!disabled && hasGeminiKey() && (
             <span style={{ fontSize: '11px', color: isQuotaEmpty ? 'var(--loss)' : 'var(--text-faint)', fontWeight: 600 }}>
               Quota: {remainingQuota}/{maxAiCalls}

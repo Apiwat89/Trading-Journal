@@ -1,4 +1,6 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+import { LanguageProvider } from './context/LanguageContext' // 🌟 นำเข้า LanguageProvider
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login'
@@ -10,6 +12,16 @@ import Settings from './pages/Settings'
 import Upgrade from './pages/Upgrade'
 
 export default function App() {
+  return (
+    <AuthProvider>
+      <LanguageProvider> {/* 🌟 ครอบไว้ชั้นนอกสุดเพื่อให้ทุกหน้าใช้งานภาษาได้ */}
+        <AppContent />
+      </LanguageProvider>
+    </AuthProvider>
+  )
+}
+
+function AppContent() {
   const location = useLocation()
   
   // เช็คว่าตอนนี้อยู่หน้า Login หรือเปล่า
@@ -90,4 +102,4 @@ export default function App() {
       </main>
     </>
   )
-} 
+}

@@ -1087,9 +1087,11 @@ a.compare-card:hover {
   }
 }
 .form-section.before {
+  margin-bottom: 10px;
   border-left-color: #4b93f7;
 }
 .form-section.result {
+  margin-bottom: 10px;
   border-left-color: var(--win);
 }
 .form-section.after {
@@ -1372,31 +1374,39 @@ a.compare-card:hover {
   }
 }
 
+/* ---------- Pricing Grid (3 Tiers) ---------- */
 .pricing-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
   margin-top: 20px;
+  align-items: stretch; /* บังคับให้กล่องมีความสูงเท่ากัน */
 }
 
 .pricing-card {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  height: 100%;
 }
 
 .pro-card {
   border-color: var(--gold-glow);
   background: rgba(212, 175, 55, 0.03);
+  transform: scale(1.05); /* ดันกล่อง Pro ให้ใหญ่และเด่นขึ้นนิดหน่อยในจอคอม */
+  z-index: 1;
 }
 
-@media (max-width: 768px) {
+/* ปรับให้เรียงเป็นแนวตั้งเมื่อเปิดในมือถือหรือแท็บเล็ต */
+@media (max-width: 860px) {
   .pricing-grid {
     grid-template-columns: 1fr;
     gap: 16px;
   }
+  .pro-card {
+    transform: none; /* ยกเลิกการขยายขนาดในจอมือถือ */
+  }
 }
-
 /* ---------- Responsive Navbar Pro & Upgrade Styles ---------- */
 .navbar-pro-container {
   display: flex;

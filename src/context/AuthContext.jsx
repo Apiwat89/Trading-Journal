@@ -3,7 +3,13 @@ import { supabase } from '../lib/supabaseClient'
 
 const AuthContext = createContext(null)
 
-// ฟังก์ชันสำหรับแปลงวันที่เป็น พิกัดเวลาท้องถิ่น 'YYYY-MM-DD' (แก้ปัญหาติดเวลา UTC)
+// 🌟 กำหนดโควต้าของแต่ละ Tier ที่นี่จุดเดียว
+export const TIER_LIMITS = {
+  free: { categories: 2, trades: 15, ai: 1, images: 2, name: 'Free' },
+  pro: { categories: 10, trades: 120, ai: 5, images: 4, name: 'Pro' },
+  pro_premium: { categories: 999, trades: 500, ai: 20, images: 8, name: 'Pro Premium' }
+}
+
 function getLocalDateString() {
   const d = new Date()
   const year = d.getFullYear()
@@ -26,7 +32,6 @@ export function AuthProvider({ children }) {
       setUser(currentSession?.user ?? null)
       
       if (currentSession?.user) {
-        // ดึงข้อมูลแพ็กเกจและโควต้า AI
         const { data } = await supabase
           .from('profiles')
           .select('*')
@@ -34,7 +39,6 @@ export function AuthProvider({ children }) {
           .single()
 
         if (data && mounted) {
-          // ใช้ฟังก์ชันดึงวันที่ตามเวลาท้องถิ่นของเครื่องผู้ใช้
           const today = getLocalDateString()
           let currentProfile = data
 
@@ -48,15 +52,11 @@ export function AuthProvider({ children }) {
             if (updatedData) currentProfile = updatedData
           }
 
-          // ---------------------------------------------------------
-          // ระบบเช็กวันหมดอายุ Pro อัตโนมัติ (ถ้าหมดเวลา ให้ดรอปกลับเป็น free)
-          // ---------------------------------------------------------
-          if (currentProfile.tier === 'pro' && currentProfile.pro_expires_at) {
+          if (['pro', 'pro_premium'].includes(currentProfile.tier) && currentProfile.pro_expires_at) {
             const expiresAt = new Date(currentProfile.pro_expires_at)
             const now = new Date()
 
             if (now >= expiresAt) {
-              // ถ้าหมดเวลาแล้ว -> อัปเดตฐานข้อมูลกลับเป็น free ทันที
               const { data: expiredData } = await supabase
                 .from('profiles')
                 .update({ tier: 'free', pro_expires_at: null })
@@ -90,9 +90,8 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  // ฟังก์ชันคำนวณเวลา Pro ที่เหลืออยู่แบบเรียลไทม์
   const getProTimeRemaining = () => {
-    if (!profile || profile.tier !== 'pro' || !profile.pro_expires_at) return null
+    if (!profile || !['pro', 'pro_premium'].includes(profile.tier) || !profile.pro_expires_at) return null
 
     const now = new Date()
     const expiresAt = new Date(profile.pro_expires_at)
@@ -110,9 +109,12 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // ฟังก์ชันสำหรับเรียกใช้เวลาที่กดใช้ AI เพื่อเพิ่มจำนวนนับทีละ 1
   const incrementAiUsage = async () => {
     if (!user || !profile) return false
+    const currentLimit = TIER_LIMITS[profile.tier || 'free'].ai
+    
+    if (profile.ai_usage_count >= currentLimit) return false
+
     const newCount = profile.ai_usage_count + 1
     const { data, error } = await supabase
       .from('profiles')
@@ -128,11 +130,16 @@ export function AuthProvider({ children }) {
     return false
   }
 
+  // ส่ง limits ปัจจุบันของผู้ใช้ออกไป
+  const currentTier = profile?.tier || 'free'
+  const limits = TIER_LIMITS[currentTier] || TIER_LIMITS['free']
+
   const value = {
     session,
     user,
     profile,
     loading,
+    limits,
     incrementAiUsage,
     getProTimeRemaining,
     signOut: () => supabase.auth.signOut(),
