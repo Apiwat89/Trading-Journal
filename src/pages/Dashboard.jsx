@@ -19,14 +19,16 @@ import {
   statsToPromptText,
   breakdownToPromptText,
   dayOfWeekToPromptText,
+  mistakeStatsToPromptText,
+  recentTradesToPromptText,
   SESSION_LABELS,
   DIRECTION_LABELS,
+  AI_PROMPT_CONFIG // 🌟 ดึงตัวแปรตั้งค่าที่เพิ่งสร้างมาใช้!
 } from '../lib/analytics'
 import AIInsight from '../components/AIInsight'
+import { useLanguage } from '../context/LanguageContext'
 
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const DAY_LABELS = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday' }
-const resultLabel = { win: '🟢 Win', loss: '🔴 Loss', breakeven: '⚪ Breakeven', open: '🟦 Open' }
 const DEFAULT_ROW_LIMIT = 8
 
 function pl(n) {
@@ -45,7 +47,7 @@ function toRows(data, { labelMap, sortBy = 'pl' } = {}) {
   return sortBy === 'count' ? rows.sort((a, b) => b.count - a.count) : rows.sort((a, b) => b.pl - a.pl)
 }
 
-function StatsTable({ title, rows, limit = DEFAULT_ROW_LIMIT, valueLabel = 'Profit/Loss' }) {
+function StatsTable({ title, rows, limit = DEFAULT_ROW_LIMIT, valueLabel, t }) {
   const [expanded, setExpanded] = useState(false)
   if (!rows.length) return null
   const visible = expanded ? rows : rows.slice(0, limit)
@@ -57,10 +59,10 @@ function StatsTable({ title, rows, limit = DEFAULT_ROW_LIMIT, valueLabel = 'Prof
       <table className="data-table">
         <thead>
           <tr>
-            <th>Item</th>
-            <th>Trades</th>
-            <th>Win Rate</th>
-            <th>{valueLabel}</th>
+            <th>{t('item')}</th>
+            <th>{t('trades')}</th>
+            <th>{t('winRateTbl')}</th>
+            <th>{valueLabel || t('profitLoss')}</th>
           </tr>
         </thead>
         <tbody>
@@ -76,14 +78,16 @@ function StatsTable({ title, rows, limit = DEFAULT_ROW_LIMIT, valueLabel = 'Prof
       </table>
       {rows.length > limit && (
         <button type="button" className="table-expand-btn" onClick={() => setExpanded((v) => !v)}>
-          {expanded ? 'Collapse' : `Show ${hidden} More Items (Total ${rows.length})`}
+          {expanded 
+            ? t('collapse') 
+            : t('showMore').replace('{hidden}', hidden).replace('{total}', rows.length)}
         </button>
       )}
     </div>
   )
 }
 
-function TradeHighlightCard({ label, trade, catNameById, tone }) {
+function TradeHighlightCard({ label, trade, catNameById, tone, t, lang, getResultLabel }) {
   if (!trade) return null
   return (
     <Link to={`/trades/${trade.id}`} className={`compare-card ${tone}`}>
@@ -93,27 +97,27 @@ function TradeHighlightCard({ label, trade, catNameById, tone }) {
       </div>
       <div className="compare-stats">
         <div>
-          <span>Category</span>
-          <strong>{catNameById[trade.category_id] || 'N/A'}</strong>
+          <span>{t('category')}</span>
+          <strong>{catNameById[trade.category_id] || t('na')}</strong>
         </div>
         <div>
-          <span>Strategy</span>
-          <strong>{trade.strategy || 'N/A'}</strong>
+          <span>{t('strategy')}</span>
+          <strong>{trade.strategy || t('na')}</strong>
         </div>
         <div>
-          <span>Result</span>
-          <strong>{resultLabel[trade.result] || trade.result}</strong>
+          <span>{t('result')}</span>
+          <strong>{getResultLabel(trade.result)}</strong>
         </div>
         <div>
-          <span>Date</span>
-          <strong>{trade.traded_at ? new Date(trade.traded_at).toLocaleDateString('th-TH') : '-'}</strong>
+          <span>{t('date')}</span>
+          <strong>{trade.traded_at ? new Date(trade.traded_at).toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US') : '-'}</strong>
         </div>
       </div>
     </Link>
   )
 }
 
-function ProLockOverlay() {
+function ProLockOverlay({ t }) {
   return (
     <div style={{
       position: 'absolute',
@@ -130,13 +134,13 @@ function ProLockOverlay() {
       padding: '24px',
       textAlign: 'center'
     }}>
-      <h3 style={{ color: 'var(--gold)', marginBottom: '8px', fontSize: '20px' }}>🔒 Pro Feature</h3>
+      <h3 style={{ color: 'var(--gold)', marginBottom: '8px', fontSize: '20px' }}>{t('proFeatureTitle')}</h3>
       <p style={{ color: 'var(--text-dim)', fontSize: '14px', marginBottom: '16px', maxWidth: '350px' }}>
-        Upgrade to Pro to unlock advanced analytics, monthly P&L breakdowns, strategy performance, and more deep insights.
+        {t('proFeatureDesc')}
       </p>
       <Link to="/upgrade">
         <button className="btn btn-primary">
-          Upgrade to Pro
+          {t('upgradeToPro')}
         </button>
       </Link>
     </div>
@@ -149,17 +153,23 @@ export default function Dashboard() {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [dateFilter, setDateFilter] = useState('all')
+  const { lang, t } = useLanguage()
 
-  const isPro = profile?.tier === 'pro'
+  const isPro = profile?.tier === 'pro' || profile?.tier === 'pro_premium'
 
-  // --- ส่วนเพิ่มใหม่: เช็กว่าถ้ากลับมาจากหน้าจ่ายเงินสำเร็จ ให้บันทึกเวลา Pro ลง Supabase ทันที ---
+  const getResultLabel = (res) => {
+    if (res === 'win') return t('resultWin')
+    if (res === 'loss') return t('resultLoss')
+    if (res === 'breakeven') return t('resultBE')
+    if (res === 'open') return t('resultOpen')
+    return res
+  }
+
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search)
     if (queryParams.get('upgrade') === 'success' && user) {
       const updateProStatus = async () => {
-        // คำนวณเวลาหมดอายุล่วงหน้า 30 วันจากปัจจุบัน
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-        
         const { error } = await supabase
           .from('profiles')
           .update({
@@ -169,7 +179,6 @@ export default function Dashboard() {
           .eq('id', user.id)
 
         if (!error) {
-          // ล้าง URL query ออกแล้วรีเฟรชหน้าเพื่อให้สิทธิ์ Pro อัปเดตทันที
           window.history.replaceState({}, document.title, window.location.pathname)
           window.location.reload()
         }
@@ -177,7 +186,6 @@ export default function Dashboard() {
       updateProStatus()
     }
   }, [user])
-  // --------------------------------------------------------------------------------
 
   useEffect(() => {
     const load = async () => {
@@ -210,43 +218,45 @@ export default function Dashboard() {
         const s = stats.byDayOfWeek[d]
         return {
           key: d,
-          label: DAY_LABELS[d] || d,
+          label: t(`day${d}`), 
           count: s.count,
           winRate: s.closed ? Math.round((s.wins / s.closed) * 100) : 0,
           pl: s.pl,
         }
       }),
-    [stats.byDayOfWeek]
+    [stats.byDayOfWeek, t]
   )
 
   const mistakeRows = useMemo(() => toRows(stats.mistakeStats, { sortBy: 'count' }), [stats.mistakeStats])
 
-  const aiSignature = `${trades.length}-${stats.totalPL.toFixed(2)}-${stats.winRate}-${stats.closed.length}-${dateFilter}`
+  const aiSignature = `${trades.length}-${stats.totalPL.toFixed(2)}-${stats.winRate}-${stats.closed.length}-${dateFilter}-${lang}`
 
   const buildOverallPrompt = () => {
     if (!isPro) {
       return [
-        'คุณเป็นโค้ชเทรดมืออาชีพ กำลังอ่านสถิติภาพรวมพอร์ตของผู้ใช้แพ็กเกจ Free',
-        'ตอบเป็นภาษาไทย กระชับ ตรงประเด็น ใช้หัวข้อย่อยเป็นหลัก ไม่ต้องมีคำนำยืดยาว',
-        'โครงสร้างคำตอบ: 1) สรุปภาพรวมพอร์ตสั้นๆ 2) ประเมินทิศทางกราฟ 3) คำแนะนำสั้นๆ 2-3 ข้อ',
-        statsToPromptText(stats, 'ภาพรวมพอร์ตทั้งหมด'),
+        t('aiFree1'),
+        t('aiFree2'),
+        t('aiFree3'),
+        statsToPromptText(stats, t('aiStatAll')),
+        recentTradesText
       ].filter(Boolean).join('\n\n')
     }
 
     const parts = [
-      'คุณเป็นโค้ชเทรดมืออาชีพที่กำลังอ่านสถิติเชิงลึกจากสมุดบันทึกการเทรดของผู้ใช้แพ็กเกจ Pro',
-      'ช่วยวิเคราะห์พอร์ตทั้งหมดของเขาอย่างละเอียด ตอบเป็นภาษาไทย กระชับ ตรงประเด็น ใช้หัวข้อย่อย (bullet)',
-      statsToPromptText(stats, 'ภาพรวมทั้งหมด'),  
-      breakdownToPromptText(stats.byCategory, 'แยกตามหมวด/สัญลักษณ์'),
-      breakdownToPromptText(stats.byStrategy, 'แยกตาม Strategy'),
-      breakdownToPromptText(stats.bySession, 'แยกตาม Session'),
-      breakdownToPromptText(stats.byDirection, 'แยกตามทิศทาง (Buy/Sell)'),
-      dayOfWeekToPromptText(stats.byDayOfWeek),
+      t('aiPro1'),
+      t('aiPro2'),
+      statsToPromptText(stats, t('aiStatAll')),  
+      // 🌟 ส่งค่าจำกัดเฉพาะหมวดลงไปตามที่ตั้งค่าไว้!
+      breakdownToPromptText(stats.byCategory, t('aiStatCat'), AI_PROMPT_CONFIG.MAX_CATEGORY),
+      breakdownToPromptText(stats.byStrategy, t('aiStatStrat'), AI_PROMPT_CONFIG.MAX_STRATEGY),
+      breakdownToPromptText(stats.bySession, t('aiStatSession'), AI_PROMPT_CONFIG.MAX_SESSION),
+      breakdownToPromptText(stats.byDirection, t('aiStatDir'), AI_PROMPT_CONFIG.MAX_DIRECTION),
+      dayOfWeekToPromptText(stats.byDayOfWeek, AI_PROMPT_CONFIG.MAX_DAY_OF_WEEK),
+      mistakeStatsToPromptText(stats.mistakeStats, t('mistakeAnalysis'), pl, AI_PROMPT_CONFIG.MAX_MISTAKE_TAGS),
+      recentTradesToPromptText(stats.closed, catNameById, pl, AI_PROMPT_CONFIG.MAX_RECENT_TRADES)
     ]
     return parts.filter(Boolean).join('\n\n')
   }
-
-  if (loading) return <div className="page-loading">Loading...</div>
 
   const fa = stats.planAdherence.followed
   const ba = stats.planAdherence.broke
@@ -254,34 +264,40 @@ export default function Dashboard() {
   const recentMonths = stats.monthlyPL.slice(-12)
   const recentTrades = [...stats.closed].reverse().slice(0, 5)
 
+  if (loading) return <div className="page-loading">Loading...</div>
+
   return (
     <div className="page">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h1>Dashboard</h1>
-          <p className="page-sub">Overall Trading Performance & Advanced Analytics</p>
+          <h1>{t('dashboard')}</h1>
+          <p className="page-sub">{t('subTitle')}</p>
         </div>
 
         <div style={{ display: 'flex', gap: '6px', background: 'var(--surface-2)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-          {['all', 'month', 'week', 'today'].map((f) => (
+          {[
+            { id: 'all', label: t('filterAll') },
+            { id: 'month', label: t('filterMonth') },
+            { id: 'week', label: t('filterWeek') },
+            { id: 'today', label: t('filterToday') }
+          ].map((f) => (
             <button
-              key={f}
+              key={f.id}
               type="button"
-              onClick={() => setDateFilter(f)}
+              onClick={() => setDateFilter(f.id)}
               style={{
-                background: dateFilter === f ? 'var(--gold)' : 'transparent',
-                color: dateFilter === f ? '#000' : 'var(--text-dim)',
+                background: dateFilter === f.id ? 'var(--gold)' : 'transparent',
+                color: dateFilter === f.id ? '#000' : 'var(--text-dim)',
                 border: 'none',
                 padding: '6px 12px',
                 borderRadius: '6px',
                 fontSize: '13px',
                 fontWeight: '600',
                 cursor: 'pointer',
-                textTransform: 'capitalize',
                 transition: 'all 0.2s ease',
               }}
             >
-              {f === 'all' ? 'All Time' : f === 'month' ? 'This Month' : f === 'week' ? 'This Week' : 'Today'}
+              {f.label}
             </button>
           ))}
         </div>
@@ -289,63 +305,63 @@ export default function Dashboard() {
 
       {trades.length === 0 ? (
         <div className="empty-state">
-          No trading data available — <Link to="/categories">Create a category and log your first trade</Link>
+          {t('noTradeData1')} <Link to="/categories">{t('noTradeData2')}</Link>
         </div>
       ) : (
         <>
           <div className="stat-row">
             <div className="stat-pill">
               <span className="stat-value">{stats.totalTrades}</span>
-              <span className="stat-label">Total Trades</span>
+              <span className="stat-label">{t('totalTrades')}</span>
             </div>
             <div className="stat-pill">
               <span className="stat-value">{stats.winRate}%</span>
-              <span className="stat-label">Win rate ({stats.wins.length}W / {stats.losses.length}L)</span>
+              <span className="stat-label">{t('winRate')} ({stats.wins.length}W / {stats.losses.length}L)</span>
             </div>
             <div className={`stat-pill ${stats.totalPL >= 0 ? 'positive' : 'negative'}`}>
               <span className="stat-value">{pl(stats.totalPL)}</span>
-              <span className="stat-label">Cumulative P&L</span>
+              <span className="stat-label">{t('cumulativePnL')}</span>
             </div>
             <div className="stat-pill">
               <span className="stat-value">{stats.profitFactor === Infinity ? '∞' : stats.profitFactor}</span>
-              <span className="stat-label">Profit factor</span>
+              <span className="stat-label">{t('profitFactor')}</span>
             </div>
             <div className={`stat-pill ${stats.expectancy >= 0 ? 'positive' : 'negative'}`}>
               <span className="stat-value">{pl(stats.expectancy)}</span>
-              <span className="stat-label">Expectancy / Trade</span>
+              <span className="stat-label">{t('expectancy')}</span>
             </div>
             <div className="stat-pill negative">
               <span className="stat-value">-{stats.maxDrawdown.toFixed(2)}</span>
-              <span className="stat-label">Max Drawdown</span>
+              <span className="stat-label">{t('maxDrawdown')}</span>
             </div>
             <div className="stat-pill">
               <span className="stat-value" style={{ color: 'var(--win)' }}>{stats.maxWinStreak}W</span>
-              <span className="stat-label">Max Win Streak</span>
+              <span className="stat-label">{t('maxWinStreak')}</span>
             </div>
             <div className="stat-pill">
               <span className="stat-value" style={{ color: 'var(--loss)' }}>{stats.maxLossStreak}L</span>
-              <span className="stat-label">Max Loss Streak</span>
+              <span className="stat-label">{t('maxLossStreak')}</span>
             </div>
             <div className="stat-pill positive">
               <span className="stat-value">{stats.avgWin.toFixed(2)}</span>
-              <span className="stat-label">Average Win</span>
+              <span className="stat-label">{t('avgWin')}</span>
             </div>
             <div className="stat-pill negative">
               <span className="stat-value">-{stats.avgLoss.toFixed(2)}</span>
-              <span className="stat-label">Average Loss</span>
+              <span className="stat-label">{t('avgLoss')}</span>
             </div>
           </div>
 
           <AIInsight
-            title="AI analyzes portfolio."
+            title={t('aiAnalyzePort')}
             cacheKey={`ai_overall_${user?.id || 'anon'}_${dateFilter}`}
             signature={aiSignature}
             buildPrompt={buildOverallPrompt}
-            actionLabel="AI analyze"
+            actionLabel={t('aiAnalyzeBtn')}
           />
 
           <div className="panel">
-            <h2>Equity Curve</h2>
+            <h2>{t('equityCurve')}</h2>
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={stats.curve}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -354,14 +370,22 @@ export default function Dashboard() {
                 <Tooltip
                   contentStyle={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8 }}
                   labelStyle={{ color: 'var(--text-dim)' }}
+                  labelFormatter={(label) => `${t('tradeNumberLabel')}${label}`} /* 🌟 เพิ่มบรรทัดนี้เข้ามาครับ */
                 />
-                <Line type="monotone" dataKey="equity" stroke="var(--win)" strokeWidth={2.5} dot={false} />
+                <Line 
+                  type="monotone" 
+                  dataKey="equity" 
+                  name={t('equityTooltip')}
+                  stroke="var(--win)" 
+                  strokeWidth={2.5} 
+                  dot={false} 
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
           <div style={{ position: 'relative', marginTop: '24px' }}>
-            {!isPro && <ProLockOverlay />}
+            {!isPro && <ProLockOverlay t={t} />}
             
             <div style={{ 
               filter: !isPro ? 'blur(6px)' : 'none', 
@@ -373,7 +397,7 @@ export default function Dashboard() {
               
               {recentMonths.length > 1 && (
                 <div className="panel">
-                  <h2>Monthly P&L</h2>
+                  <h2>{t('monthlyPnL')}</h2>
                   <ResponsiveContainer width="100%" height={240}>
                     <BarChart data={recentMonths}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -395,40 +419,40 @@ export default function Dashboard() {
 
               {hasPlanData && (
                 <div className="panel">
-                  <h2>Following Plan vs Not Following Plan</h2>
+                  <h2>{t('planVsNoPlan')}</h2>
                   <div className="compare-grid">
                     <div className="compare-card good">
-                      <div className="compare-card-title">Following Plan</div>
-                      <div className="compare-card-value">{fa.count} Trades</div>
+                      <div className="compare-card-title">{t('followingPlan')}</div>
+                      <div className="compare-card-value">{fa.count} {t('trades')}</div>
                       <div className="compare-stats">
                         <div>
-                          <span>Win rate</span>
+                          <span>{t('winRateTbl')}</span>
                           <strong>{fa.winRate}%</strong>
                         </div>
                         <div>
-                          <span>Wins / Losses</span>
+                          <span>{t('winsLosses')}</span>
                           <strong>{fa.wins}W / {fa.losses}L</strong>
                         </div>
                         <div>
-                          <span>Cumulative P&L</span>
+                          <span>{t('cumulativePnL')}</span>
                           <strong className={fa.pl >= 0 ? 'positive' : 'negative'}>{pl(fa.pl)}</strong>
                         </div>
                       </div>
                     </div>
                     <div className="compare-card bad">
-                      <div className="compare-card-title">Not Following Plan</div>
-                      <div className="compare-card-value">{ba.count} Trades</div>
+                      <div className="compare-card-title">{t('notFollowingPlan')}</div>
+                      <div className="compare-card-value">{ba.count} {t('trades')}</div>
                       <div className="compare-stats">
                         <div>
-                          <span>Win rate</span>
+                          <span>{t('winRateTbl')}</span>
                           <strong>{ba.winRate}%</strong>
                         </div>
                         <div>
-                          <span>Wins / Losses</span>
+                          <span>{t('winsLosses')}</span>
                           <strong>{ba.wins}W / {ba.losses}L</strong>
                         </div>
                         <div>
-                          <span>Cumulative P&L</span>
+                          <span>{t('cumulativePnL')}</span>
                           <strong className={ba.pl >= 0 ? 'positive' : 'negative'}>{pl(ba.pl)}</strong>
                         </div>
                       </div>
@@ -439,49 +463,49 @@ export default function Dashboard() {
 
               {(stats.bestTrade || stats.worstTrade) && (
                 <div className="panel">
-                  <h2>Best / Worst Trade</h2>
+                  <h2>{t('bestTrade').replace('🏆 ', '').replace('💀 ', '')} / {t('worstTrade').replace('🏆 ', '').replace('💀 ', '')}</h2>
                   <div className="compare-grid">
-                    <TradeHighlightCard label="🏆 Best Trade" trade={stats.bestTrade} catNameById={catNameById} tone="good" />
-                    <TradeHighlightCard label="💀 Worst Trade" trade={stats.worstTrade} catNameById={catNameById} tone="bad" />
+                    <TradeHighlightCard label={t('bestTrade')} trade={stats.bestTrade} catNameById={catNameById} tone="good" t={t} lang={lang} getResultLabel={getResultLabel} />
+                    <TradeHighlightCard label={t('worstTrade')} trade={stats.worstTrade} catNameById={catNameById} tone="bad" t={t} lang={lang} getResultLabel={getResultLabel} />
                   </div>
                 </div>
               )}
 
               <div className="panel-grid">
-                <StatsTable title="Categorized by Symbol" rows={categoryRows} />
-                <StatsTable title="Categorized by Strategy" rows={strategyRows} />
-                <StatsTable title="Categorized by Session" rows={sessionRows} />
-                <StatsTable title="Categorized by Direction" rows={directionRows} />
-                {dayRows.length > 0 && <StatsTable title="Performance by Day of Week" rows={dayRows} />}
-                {mistakeRows.length > 0 && <StatsTable title="Mistake Tags Analysis" rows={mistakeRows} valueLabel="Total Loss Impact" />}
+                <StatsTable title={t('catBySymbol')} rows={categoryRows} t={t} />
+                <StatsTable title={t('catByStrategy')} rows={strategyRows} t={t} />
+                <StatsTable title={t('catBySession')} rows={sessionRows} t={t} />
+                <StatsTable title={t('catByDirection')} rows={directionRows} t={t} />
+                {dayRows.length > 0 && <StatsTable title={t('perfByDay')} rows={dayRows} t={t} />}
+                {mistakeRows.length > 0 && <StatsTable title={t('mistakeAnalysis')} rows={mistakeRows} valueLabel={t('totalLossImpact')} t={t} />}
               </div>
 
               <div className="panel" style={{ marginTop: '24px' }}>
-                <h2>Recent Trades</h2>
+                <h2>{t('recentTrades')}</h2>
                 <div className="table-responsive">
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>Date</th>
-                        <th>Symbol</th>
-                        <th>Direction</th>
-                        <th>Strategy</th>
-                        <th>Result</th>
-                        <th>P&L</th>
+                        <th>{t('date')}</th>
+                        <th>{t('symbol')}</th>
+                        <th>{t('direction')}</th>
+                        <th>{t('strategy')}</th>
+                        <th>{t('result')}</th>
+                        <th>{t('profitLoss')}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {recentTrades.map((t) => (
-                        <tr key={t.id}>
-                          <td>{t.traded_at ? new Date(t.traded_at).toLocaleDateString('th-TH') : '-'}</td>
-                          <td><strong>{catNameById[t.category_id] || 'N/A'}</strong></td>
-                          <td style={{ textTransform: 'uppercase', fontWeight: 'bold', color: t.direction === 'buy' ? 'var(--win)' : 'var(--loss)' }}>
-                            {t.direction}
+                      {recentTrades.map((t_row) => (
+                        <tr key={t_row.id}>
+                          <td>{t_row.traded_at ? new Date(t_row.traded_at).toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US') : '-'}</td>
+                          <td><strong>{catNameById[t_row.category_id] || t('na')}</strong></td>
+                          <td style={{ textTransform: 'uppercase', fontWeight: 'bold', color: t_row.direction === 'buy' ? 'var(--win)' : 'var(--loss)' }}>
+                            {t_row.direction}
                           </td>
-                          <td>{t.strategy || '-'}</td>
-                          <td>{resultLabel[t.result] || t.result}</td>
-                          <td className={Number(t.profit_loss) >= 0 ? 'positive' : 'negative'}>
-                            {t.profit_loss !== null ? pl(t.profit_loss) : '-'}
+                          <td>{t_row.strategy || '-'}</td>
+                          <td>{getResultLabel(t_row.result)}</td>
+                          <td className={Number(t_row.profit_loss) >= 0 ? 'positive' : 'negative'}>
+                            {t_row.profit_loss !== null ? pl(t_row.profit_loss) : '-'}
                           </td>
                         </tr>
                       ))}

@@ -5,7 +5,7 @@ export default function ProtectedRoute({ children }) {
   const { session, loading } = useAuth()
 
   if (loading) {
-    return <div className="page-loading">กำลังโหลด...</div>
+    return <div className="page-loading">Loading...</div>
   }
 
   if (!session) {

@@ -63,7 +63,7 @@ export default function Navbar() {
             style={{ fontWeight: 'bold', minWidth: '50px', marginRight: '8px' }}
             title="Switch Language"
           >
-            {lang === 'en' ? 'Thailand' : 'English'}
+            {lang === 'en' ? 'English' : 'ไทย'}
           </button>
 
           <span className="navbar-email">{user.email}</span>
@@ -112,7 +112,7 @@ export default function Navbar() {
             <line x1="2" x2="22" y1="12" y2="12"/>
             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
           </svg>
-          {lang === 'en' ? 'Thailand' : 'English'}
+          {lang === 'en' ? 'English' : 'ไทย'}
         </button>
 
         <button className="bottom-nav-item" onClick={handleSignOut}>

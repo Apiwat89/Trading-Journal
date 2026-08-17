@@ -7,7 +7,7 @@ const AuthContext = createContext(null)
 export const TIER_LIMITS = {
   free: { categories: 2, trades: 15, ai: 1, images: 2, name: 'Free' },
   pro: { categories: 10, trades: 120, ai: 5, images: 4, name: 'Pro' },
-  pro_premium: { categories: 999, trades: 500, ai: 20, images: 8, name: 'Pro Premium' }
+  pro_premium: { categories: 100, trades: 500, ai: 20, images: 8, name: 'Pro Premium' }
 }
 
 function getLocalDateString() {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { askGemini, hasGeminiKey } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
+import { useLanguage } from '../context/LanguageContext'
 
 function renderInline(text, keyPrefix) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean)
@@ -80,6 +81,7 @@ export default function AIInsight({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [isExpanded, setIsExpanded] = useState(true)
+  const { t } = useLanguage()
 
   const isFree = profile?.tier === 'free' || !profile?.tier
   
@@ -111,8 +113,8 @@ export default function AIInsight({
   const run = async (e) => {
     if (e) e.stopPropagation()
 
-    if (isQuotaEmpty) {
-      setError(`You have reached your daily AI limit (${remainingQuota}/${maxAiCalls}). ${isFree ? 'Upgrade to Pro for more daily analyses.' : 'Please try again tomorrow.'}`)
+    if (isQuotaEmpty) { 
+      setError(t('quotaEmpty').replace('{remaining}', remainingQuota).replace('{max}', maxAiCalls).replace('{upgradeMessage}', isFree ? t('upgradeMessageFree') : t('upgradeMessagePro')))
       setIsExpanded(true)
       return
     }
@@ -124,7 +126,7 @@ export default function AIInsight({
     try {
       const canProceed = await incrementAiUsage()
       if (!canProceed) {
-        throw new Error('Failed to update AI usage quota. Please try again.')
+        throw new Error(t('canProceed'))
       }
 
       const prompt = buildPrompt()
@@ -137,7 +139,7 @@ export default function AIInsight({
         // ignore
       }
     } catch (e) {
-      setError(e.message || 'An error occurred during analysis.')
+      setError(e.message || t('analysisError'))
     } finally {
       setLoading(false)
     }
@@ -160,13 +162,13 @@ export default function AIInsight({
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           {!disabled && hasGeminiKey() && (
             <span style={{ fontSize: '11px', color: isQuotaEmpty ? 'var(--loss)' : 'var(--text-faint)', fontWeight: 600 }}>
-              Quota: {remainingQuota}/{maxAiCalls}
+              {t('quota')}: {remainingQuota}/{maxAiCalls}
             </span>
           )}
 
           {result && !loading && (
             <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600 }}>
-              {isExpanded ? '▲ Collapse' : '▼ View Analysis'}
+              {isExpanded ? t('hideAnalysis') : t('viewAnalysis')}
             </span>
           )}
 
@@ -174,10 +176,10 @@ export default function AIInsight({
             <button className="btn btn-ai btn-small" onClick={run} disabled={loading}>
               {loading ? (
                 <>
-                  <span className="spinner" /> Analyzing...
+                  <span className="spinner" /> {t('Analyzing')}
                 </>
               ) : result ? (
-                'Regenerate'
+                t('regenerate')
               ) : (
                 actionLabel
               )}
@@ -192,7 +194,7 @@ export default function AIInsight({
             <div className="ai-card-empty">{disabledHint || 'Not enough data for analysis yet.'}</div>
           ) : !hasGeminiKey() ? (
             <div className="ai-card-empty">
-              Gemini API key is missing. Please add <code>VITE_GEMINI_API_KEY</code> to your <code>.env</code> file and restart the server.
+              {t('geminiApiKeyMissing')}
             </div>
           ) : loading && !result ? (
             <div className="ai-skeleton">
@@ -204,12 +206,12 @@ export default function AIInsight({
             <>
               <div className="ai-card-body">{renderAiText(result.text)}</div>
               <div className="ai-card-meta">
-                Analyzed on {new Date(result.generatedAt).toLocaleString('en-US')}
-                {stale ? ' · Data has changed since last analysis. Click "Regenerate" to update.' : ''}
+                {t('Analyzedon')} {new Date(result.generatedAt).toLocaleString('en-US')}
+                {stale ? ` · ${t('dataStale')}` : ''}
               </div>
             </>
           ) : (
-            <div className="ai-card-empty">Click the button above to generate insights.</div>
+            <div className="ai-card-empty">{t('showInsights')}</div>
           )}
 
           {error && <div className="alert alert-error" style={{ marginTop: 12, marginBottom: 0 }}>{error}</div>}

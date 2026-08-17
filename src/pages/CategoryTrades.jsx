@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { computeStats, statsToPromptText, breakdownToPromptText } from '../lib/analytics'
 import AIInsight from '../components/AIInsight'
+import { useLanguage } from '../context/LanguageContext'
 
 const resultLabel = { win: '🟢 WIN', loss: '🔴 LOSS', breakeven: '⚪ BE', open: '🟦 OPEN' }
 
@@ -14,6 +15,7 @@ export default function CategoryTrades() {
   const [trades, setTrades] = useState([])
   const [loading, setLoading] = useState(true)
   const [isLocked, setIsLocked] = useState(false)
+  const { t } = useLanguage()
 
   const isPro = profile?.tier === 'pro' || profile?.tier === 'pro_premium'
 
@@ -85,66 +87,63 @@ export default function CategoryTrades() {
     <div className="page">
       <div className="page-header">
         <div>
-          <Link to="/categories" className="breadcrumb">← All Categories</Link>
+          <Link to="/categories" className="breadcrumb">{t('allCat')}</Link>
           <h1>{category?.name || '...'} {isLocked && '🔒'}</h1>
           {category?.description && <p className="page-sub">{category.description}</p>}
         </div>
         {!isLocked && (
           <Link to={`/categories/${categoryId}/new`} className="btn btn-primary page-header-action">
-            + Record New Trade
+            {t('newTrade')}
           </Link>
         )}
       </div>
 
       {isLocked && (
         <div className="panel" style={{ backgroundColor: 'rgba(255, 82, 82, 0.1)', borderColor: 'var(--loss)', marginBottom: '24px' }}>
-          <h3 style={{ color: 'var(--loss)', marginBottom: '8px' }}>🔒 Category Locked</h3>
+          <h3 style={{ color: 'var(--loss)', marginBottom: '8px' }}>{t('lockedCategory')}</h3>
           <p style={{ color: 'var(--text)', fontSize: '14px', marginBottom: '16px' }}>
-            This category is locked because you have exceeded the {limits.categories} category limit of the {limits.name} plan.
-            You can still view past trades, but you cannot record new ones.
+            {t('lockedCategoryDesc').replace('{limit}', limits.categories).replace('{plan}', limits.name)}
           </p>
-          {!isPro && <Link to="/upgrade"><button className="btn btn-primary">Upgrade to Pro to Unlock</button></Link>}
+          {!isPro && <Link to="/upgrade"><button className="btn btn-primary">{t('upgradeToProUnlock')}</button></Link>}
         </div>
       )}
 
       <div className="stat-row">
         <div className="stat-pill">
           <span className="stat-value">{trades.length}</span>
-          <span className="stat-label">Total Trades</span>
+          <span className="stat-label">{t('totalTrades')}</span>
         </div>
         <div className="stat-pill">
           <span className="stat-value">{winRate}%</span>
-          <span className="stat-label">Win rate</span>
+          <span className="stat-label">{t('winRate')}</span>
         </div>
         <div className={`stat-pill ${totalPL >= 0 ? 'positive' : 'negative'}`}>
           <span className="stat-value">{totalPL >= 0 ? '+' : ''}{totalPL.toFixed(2)}</span>
-          <span className="stat-label">Total P&L</span>
+          <span className="stat-label">{t('totalPnL')}</span> 
         </div>
       </div>
 
       {!loading && trades.length > 0 && (
         <AIInsight
-          title={`AI analyzes ${category?.name || ''}`}
+          title={t('aiAnalyze').replace('{category}', category?.name || '')}
           cacheKey={`ai_category_${user?.id || 'anon'}_${categoryId}_${isPro ? 'pro' : 'free'}`}
           signature={aiSignature}
           buildPrompt={buildCategoryPrompt}
-          actionLabel="AI analyze"
+          actionLabel={t('aiAnalyzeBtn')}
           disabled={isLocked} // 🌟 บล็อก AI ถ้าหมวดนี้โดนล็อก
-          disabledHint="AI analysis is disabled for locked categories. Upgrade to Pro to unlock."
+          disabledHint={t('aiDisabledHint')}
         />
       )}
 
       {loading ? (
-        <div className="page-loading">Loading...</div>
-      ) : trades.length === 0 ? (
-        <div className="empty-state">No trades recorded in this category — start recording your first trade</div>
+        <div className="empty-state">{t('noTradesInCategory')}</div>
       ) : (
         <div className="trade-list">
           {trades.map((t) => (
             <Link to={`/trades/${t.id}`} key={t.id} className="trade-card">
               <div className="trade-card-section before">
                 <div className="trade-card-row">
-                  <span>{t.direction === 'buy' ? '🔼 BUY' : '🔽 SELL'}</span>
+                  <span>{t.direction === 'buy' ? '📈 BUY' : '📉 SELL'}</span>
                   <span>Entry {t.entry_price ?? '-'}</span>
                   <span>SL {t.stop_loss ?? '-'}</span>
                   <span>TP {t.take_profit ?? '-'}</span>

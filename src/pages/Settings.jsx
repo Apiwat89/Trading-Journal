@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
+import { useLanguage } from '../context/LanguageContext' // 🌟 นำเข้า useLanguage
 
 export default function Settings() {
   const { user } = useAuth()
+  const { t } = useLanguage() // 🌟 ดึง t มาใช้
+  
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,11 +19,11 @@ export default function Settings() {
     setMessage('')
     
     if (password !== confirmPassword) {
-      setError('Passwords do not match.')
+      setError(t('passwordMismatch')) // 🌟 ใช้คำแปล
       return
     }
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.')
+      setError(t('passwordTooShort')) // 🌟 ใช้คำแปล
       return
     }
 
@@ -31,9 +34,9 @@ export default function Settings() {
     setLoading(false)
 
     if (updateError) {
-      setError(updateError.message)
+      setError(updateError.message) // error จากระบบ supabase
     } else {
-      setMessage('Password has been updated successfully.')
+      setMessage(t('passwordUpdated')) // 🌟 ใช้คำแปล
       setPassword('')
       setConfirmPassword('')
     }
@@ -43,16 +46,16 @@ export default function Settings() {
     <div className="page page-narrow">
       <div className="page-header">
         <div>
-          <h1>Settings</h1>
-          <p className="page-sub">Manage your account preferences and security.</p>
+          <h1>{t('settings')}</h1>
+          <p className="page-sub">{t('settingsDesc')}</p>
         </div>
       </div>
 
       <div className="panel">
-        <h2>Change Password</h2>
+        <h2>{t('changePassword')}</h2>
         <form onSubmit={handleUpdatePassword} style={{ marginTop: '18px' }}>
           <label className="field">
-            New Password
+            {t('newPassword')}
             <input
               type="password"
               value={password}
@@ -62,7 +65,7 @@ export default function Settings() {
             />
           </label>
           <label className="field">
-            Confirm New Password
+            {t('confirmNewPassword')}
             <input
               type="password"
               value={confirmPassword}
@@ -77,7 +80,7 @@ export default function Settings() {
 
           <div style={{ marginTop: '16px' }}>
             <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Updating...' : 'Update Password'}
+              {loading ? t('updating') : t('updatePasswordBtn')}
             </button>
           </div>
         </form>
@@ -106,7 +109,7 @@ export default function Settings() {
               transition: 'filter 0.2s ease'
             }}
           > 
-            Contact Admin (Line)
+            {t('contactAdminLine')}
           </a>
         </div>
     </div>

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import AIInsight from '../components/AIInsight'
 import Lightbox from '../components/Lightbox'
+import { useLanguage } from '../context/LanguageContext'
 
 function getLocalDatetimeString(dateObj = new Date()) {
   const pad = (n) => String(n).padStart(2, '0')
@@ -66,12 +67,13 @@ const compressImage = (file) => {
 function HeroGallery({ form, isPro }) {
   const [zoomed, setZoomed] = useState(null)
   const [activeTab, setActiveTab] = useState(0)
+  const { t } = useLanguage()
 
   const images = []
-  if (form.before_image_url) images.push({ label: '🟦 Before 1', url: form.before_image_url, locked: false })
-  if (form.before_image_url_2) images.push({ label: '🟦 Before 2', url: form.before_image_url_2, locked: !isPro })
-  if (form.after_image_url) images.push({ label: '🟥 After 1', url: form.after_image_url, locked: false })
-  if (form.after_image_url_2) images.push({ label: '🟥 After 2', url: form.after_image_url_2, locked: !isPro })
+  if (form.before_image_url) images.push({ label: '🟦 ' + t('Before') + ' (1)', url: form.before_image_url, locked: false })
+  if (form.before_image_url_2) images.push({ label: '🟦 ' + t('Before') + ' (2)', url: form.before_image_url_2, locked: !isPro })
+  if (form.after_image_url) images.push({ label: '🟥 ' + t('After') + ' (1)', url: form.after_image_url, locked: false })
+  if (form.after_image_url_2) images.push({ label: '🟥 ' + t('After') + ' (2)', url: form.after_image_url_2, locked: !isPro })
 
   if (images.length === 0) return null
 
@@ -88,7 +90,7 @@ function HeroGallery({ form, isPro }) {
             onClick={() => setActiveTab(i)}
             style={{ opacity: img.locked ? 0.6 : 1 }}
           >
-            {img.locked ? `🔒 ${img.label}` : img.label}
+            {img.locked ? `${img.label}` : img.label}
           </button>
         ))}
       </div>
@@ -97,9 +99,9 @@ function HeroGallery({ form, isPro }) {
         {currentImg.locked ? (
           <div style={{ textAlign: 'center', padding: '40px' }}>
             <h2 style={{ color: 'var(--loss)', marginBottom: '12px', fontSize: '32px' }}>🔒</h2>
-            <h3 style={{ color: 'var(--text)', marginBottom: '8px' }}>Image Locked</h3>
+            <h3 style={{ color: 'var(--text)', marginBottom: '8px' }}>{t('imageLocked')}</h3>
             <p style={{ color: 'var(--text-dim)', fontSize: '14px', marginBottom: '16px' }}>
-              This image is locked. Upgrade to Pro to view your extra charts.
+              {t('imageLockedDesc')}
             </p>
           </div>
         ) : (
@@ -110,7 +112,7 @@ function HeroGallery({ form, isPro }) {
               style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', cursor: 'zoom-in' }} 
               onClick={() => setZoomed(currentImg.url)}
             />
-            <span className="hero-gallery-hint">Click to enlarge 🔍</span>
+            <span className="hero-gallery-hint">{t('clickToEnlarge')} 🔍</span>
           </>
         )}
       </div>
@@ -121,6 +123,7 @@ function HeroGallery({ form, isPro }) {
 }
 
 export default function TradeForm() {
+  const { t } = useLanguage()
   const { categoryId, id } = useParams() 
   const editing = Boolean(id)
   const { user, profile, limits } = useAuth()
@@ -173,7 +176,7 @@ export default function TradeForm() {
         if (catIndex !== -1 && catIndex >= limits.categories) {
           setIsLockedCategory(true)
           if (!editing) {
-            setError(`This category is locked. Upgrade to Pro to add new trades.`)
+            setError(`${t('categoryLockedDesc')}`)
             setLoading(false)
             return 
           }
@@ -223,7 +226,7 @@ export default function TradeForm() {
       const { data } = supabase.storage.from('trade-images').getPublicUrl(path)
       setForm((f) => ({ ...f, [field]: data.publicUrl }))
     } catch (err) {
-      setError(err.message || 'Image upload failed')
+      setError(err.message || t('imageUploadFailed'))
     } finally {
       setUploading('')
     }
@@ -234,7 +237,7 @@ export default function TradeForm() {
     if (isLockedCategory || error) return 
 
     if (!editing && isLimitReached) {
-      setError(`Your ${limits.name} plan is limited to ${maxLimit} trades per month.`)
+      setError(`${t('monthlyLimitDesc', { limits: limits.name, maxLimit })}`)
       return
     }
 
@@ -269,7 +272,7 @@ export default function TradeForm() {
   }
 
   const handleDelete = async () => {
-    if (!confirm('Delete this trade?')) return
+    if (!confirm(t('deleteTradeConfirm'))) return
     await supabase.from('trades').delete().eq('id', id)
     navigate(`/categories/${resolvedCategoryId}`)
   }
@@ -300,7 +303,7 @@ export default function TradeForm() {
     return (
       <div style={{ marginBottom: '16px' }}>
         <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-dim)', marginBottom: '8px' }}>
-          {label} {isLockedForUser && <span style={{ color: 'var(--loss)' }}>(🔒 Pro Only)</span>}
+          {label} {isLockedForUser && <span style={{ color: 'var(--loss)' }}>(🔒 {t('proOnly')})</span>}
         </div>
         
         {url ? (
@@ -313,28 +316,26 @@ export default function TradeForm() {
                 onClick={() => removeImage(field)} 
                 style={{ position: 'absolute', top: '8px', right: '8px', padding: '4px 8px', fontSize: '12px' }}
               >
-                ✕ Remove
+                {t('removeImage')}
               </button>
             )}
           </div>
         ) : (
           <label className="field" style={{ margin: 0 }}>
             <input type="file" accept="image/*" onChange={(e) => e.target.files[0] && uploadImage(e.target.files[0], field)} disabled={isLockedCategory || isLockedForUser} />
-            {uploading === field && <span className="hint">Uploading & Compressing...</span>}
+            {uploading === field && <span className="hint">{t('uploadingCompressing')}</span>}
           </label>
         )}
       </div>
     )
   }
 
-  if (loading) return <div className="page-loading">Loading...</div>
-
   return (
     <div className="page page-narrow">
       <div className="page-header">
         <div>
           <Link to={`/categories/${resolvedCategoryId}`} className="breadcrumb">← {categoryName || 'Back'}</Link>
-          <h1>{editing ? 'Edit Trade' : 'Record New Trade'}</h1>
+          <h1>{editing ? t('EditTrade') : t('RecordNewTrade')}</h1>
         </div>
       </div>
 
@@ -342,20 +343,20 @@ export default function TradeForm() {
 
       {editing && isLockedCategory && (
         <div className="panel" style={{ backgroundColor: 'rgba(255, 82, 82, 0.1)', borderColor: 'var(--loss)', marginBottom: '24px' }}>
-          <h3 style={{ color: 'var(--loss)', marginBottom: '8px' }}>🔒 Trade Locked</h3>
+          <h3 style={{ color: 'var(--loss)', marginBottom: '8px' }}>{t('tradeLocked')}</h3>
           <p style={{ color: 'var(--text)', fontSize: '14px', marginBottom: '0' }}>
-            This trade belongs to a locked category. Editing and AI analysis are disabled. You can only view or delete this trade.
+            {t('tradeLockedDesc')}
           </p>
         </div>
       )}
 
       {error && error.includes('locked') && !editing ? null : isLimitReached && !editing ? (
         <div className="panel" style={{ textAlign: 'center', padding: '32px', borderColor: 'var(--gold-glow)' }}>
-          <h3 style={{ color: 'var(--gold)', marginBottom: '12px', fontSize: '22px' }}>Monthly Trade Limit Reached</h3>
+          <h3 style={{ color: 'var(--gold)', marginBottom: '12px', fontSize: '22px' }}>{t('monthlyTradeLimitReached')}</h3>
           <p style={{ color: 'var(--text-dim)', fontSize: '14px', marginBottom: '20px' }}>
-            You have reached the maximum of {maxLimit} trades for this month on the {limits.name} plan.
+            {t('monthlyLimitDesc')} <strong>{limits.name}</strong> {t('monthlyLimitDesc2')} {maxLimit} {t('monthlyLimitDesc3')}
           </p>
-          {isFree && <Link to="/upgrade"><button className="btn btn-primary">Upgrade to Pro</button></Link>}
+          {isFree && <Link to="/upgrade"><button className="btn btn-primary">{t('upgradeToPro')}</button></Link>}
         </div>
       ) : (
         <>
@@ -363,80 +364,76 @@ export default function TradeForm() {
           
           {editing && (
             <AIInsight 
-              title="AI analyzes this trade." 
+              title={t('AIAnalyzetrade')} 
               cacheKey={`ai_trade_${id}`} 
               signature={form.result+form.profit_loss} 
               buildPrompt={buildTradePrompt} 
-              actionLabel="AI analyze" 
+              actionLabel={t('aiAnalyzeBtn')} 
               disabled={isLockedCategory} 
-              disabledHint="AI analysis is disabled for trades in locked categories."
+              disabledHint={t('aiDisabledHint')}  
             />
           )}
 
           <form onSubmit={handleSubmit} className="trade-form">
             {!editing && (
               <div style={{ marginBottom: '16px', fontSize: '12px', color: 'var(--text-faint)', fontWeight: 600 }}>
-                Monthly Trades Used: {monthlyTradeCount}/{maxLimit} ({limits.name} Plan)
+                {t('monthlyTradesUsed')} {monthlyTradeCount}/{maxLimit} ({limits.name})
               </div>
             )}
 
             <fieldset disabled={isLockedCategory} style={{ border: 'none', padding: 0, margin: 0 }}>
-              <label className="field">Date & time of trade<input type="datetime-local" value={form.traded_at} onChange={update('traded_at')} /></label>
+              <label className="field">{t('dateAndTimeOfTrade')}<input type="datetime-local" value={form.traded_at} onChange={update('traded_at')} /></label>
 
               <section className="form-section before">
-                <h2>🟦 Before Trading</h2>
+                <h2>🟦 {t('BeforeTrading')}</h2>
                 <div className="field-grid">
-                  <label className="field">Direction<select value={form.direction} onChange={update('direction')}><option value="buy">Buy</option><option value="sell">Sell</option></select></label>
-                  <label className="field">Entry<input type="number" step="any" value={form.entry_price} onChange={update('entry_price')} /></label>
-                  <label className="field">Stop Loss<input type="number" step="any" value={form.stop_loss} onChange={update('stop_loss')} /></label>
-                  <label className="field">Take Profit<input type="number" step="any" value={form.take_profit} onChange={update('take_profit')} /></label>
-                  <label className="field">Lot<input type="number" step="any" value={form.lot_size} onChange={update('lot_size')} /></label>
-                  <label className="field">Timeframe<input type="text" list="timeframe-options" value={form.timeframe} onChange={update('timeframe')} /><datalist id="timeframe-options">{availableTimeframes.map(tf => <option key={tf} value={tf} />)}</datalist></label>
-                  <label className="field">Session<select value={form.session} onChange={update('session')}><option value="asia">Asia</option><option value="london">London</option><option value="newyork">New York</option><option value="other">Other</option></select></label>
-                  <label className="field">Strategy<input type="text" list="strategy-options" value={form.strategy} onChange={update('strategy')} /><datalist id="strategy-options">{availableStrategies.map(st => <option key={st} value={st} />)}</datalist></label>
+                  <label className="field">{t('direction')}<select value={form.direction} onChange={update('direction')}><option value="buy">Buy</option><option value="sell">Sell</option></select></label>
+                  <label className="field">{t('Entry')}<input type="number" step="any" value={form.entry_price} onChange={update('entry_price')} /></label>
+                  <label className="field">{t('StopLoss')}<input type="number" step="any" value={form.stop_loss} onChange={update('stop_loss')} /></label>
+                  <label className="field">{t('TakeProfit')}<input type="number" step="any" value={form.take_profit} onChange={update('take_profit')} /></label>
+                  <label className="field">{t('LotSize')}<input type="number" step="any" value={form.lot_size} onChange={update('lot_size')} /></label>
+                  <label className="field">{t('Timeframe')}<input type="text" list="timeframe-options" value={form.timeframe} onChange={update('timeframe')} /><datalist id="timeframe-options">{availableTimeframes.map(tf => <option key={tf} value={tf} />)}</datalist></label>
+                  <label className="field">{t('session')}<select value={form.session} onChange={update('session')}><option value="asia">Asia</option><option value="london">London</option><option value="newyork">New York</option><option value="other">Other</option></select></label>
+                  <label className="field">{t('Strategy')}<input type="text" list="strategy-options" value={form.strategy} onChange={update('strategy')} /><datalist id="strategy-options">{availableStrategies.map(st => <option key={st} value={st} />)}</datalist></label>
                 </div>
-                <label className="field">Setup<input type="text" list="setup-options" value={form.setup} onChange={update('setup')} /><datalist id="setup-options">{availableSetups.map(su => <option key={su} value={su} />)}</datalist></label>
-                <label className="field">Trading Plan<textarea rows={3} value={form.plan_notes} onChange={update('plan_notes')} /></label>
-                <label className="field">News<textarea rows={2} value={form.news_notes} onChange={update('news_notes')} /></label>
-                
+                <label className="field">{t('Setup')}<input type="text" list="setup-options" value={form.setup} onChange={update('setup')} /><datalist id="setup-options">{availableSetups.map(su => <option key={su} value={su} />)}</datalist></label>
+                <label className="field">{t('TradingPlan')}<textarea rows={3} value={form.plan_notes} onChange={update('plan_notes')} /></label>
+                <label className="field">{t('News')}<textarea rows={2} value={form.news_notes} onChange={update('news_notes')} /></label>
+
                 {/* 🌟 รูป Before 1 & 2 */}
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', marginTop: '16px' }}>
-                  {renderImageSlot('before_image_url', 'Chart Before Trading 1', false)}
-                  {(isPro || form.before_image_url_2) && renderImageSlot('before_image_url_2', 'Chart Before Trading 2', !isPro)}
-                </div>
-              </section>
-
-              <section className="form-section result">
-                <h2>🟩 Result</h2>
-                <div className="field-grid">
-                  <label className="field">Exit<input type="number" step="any" value={form.exit_price} onChange={update('exit_price')} /></label>
-                  <label className="field">Profit/Loss<input type="number" step="any" value={form.profit_loss} onChange={update('profit_loss')} /></label>
-                  <label className="field">Result<select value={form.result} onChange={update('result')}><option value="open">Open</option><option value="win">Win</option><option value="loss">Loss</option><option value="breakeven">Breakeven</option></select></label>
-                  <label className="field">Duration (Min)<input type="number" value={form.duration_minutes} onChange={update('duration_minutes')} /></label>
+                  {renderImageSlot('before_image_url', t('ChartBeforeTrading') + ' (1)', false)}
+                  {(isPro || form.before_image_url_2) && renderImageSlot('before_image_url_2', t('ChartBeforeTrading') + ' (2)', !isPro)}
                 </div>
               </section>
 
               <section className="form-section after">
                 <h2>🟥 After Trading</h2>
-                <label className="field">Reason for Winning<textarea rows={2} value={form.win_reason} onChange={update('win_reason')} /></label>
-                <label className="field">Reason for Losing<textarea rows={2} value={form.loss_reason} onChange={update('loss_reason')} /></label>
-                <label className="field">Lesson Learned<textarea rows={2} value={form.lesson} onChange={update('lesson')} /></label>
-                <label className="field checkbox-field"><input type="checkbox" checked={form.followed_plan} onChange={update('followed_plan')} /> Followed Trading Plan</label>
-                <label className="field">Mistake Tags<input type="text" list="mistake-options" value={form.mistake_tags} onChange={update('mistake_tags')} /><datalist id="mistake-options">{availableTags.map((m) => <option key={m} value={m} />)}</datalist></label>
+                <div className="field-grid">
+                  <label className="field">{t('Exit')}<input type="number" step="any" value={form.exit_price} onChange={update('exit_price')} /></label>
+                  <label className="field">{t('ProfitLoss')}<input type="number" step="any" value={form.profit_loss} onChange={update('profit_loss')} /></label>
+                  <label className="field">{t('Result')}<select value={form.result} onChange={update('result')}><option value="open">Open</option><option value="win">Win</option><option value="loss">Loss</option><option value="breakeven">Breakeven</option></select></label>
+                  <label className="field">{t('Duration')}<input type="number" value={form.duration_minutes} onChange={update('duration_minutes')} /></label>
+                </div>
+                <label className="field">{t('ReasonForWinning')}<textarea rows={2} value={form.win_reason} onChange={update('win_reason')} /></label>
+                <label className="field">{t('ReasonForLosing')}<textarea rows={2} value={form.loss_reason} onChange={update('loss_reason')} /></label>
+                <label className="field">{t('LessonLearned')}<textarea rows={2} value={form.lesson} onChange={update('lesson')} /></label>
+                <label className="field checkbox-field"><input type="checkbox" checked={form.followed_plan} onChange={update('followed_plan')} /> {t('FollowedTradingPlan')}</label>
+                <label className="field">{t('MistakeTags')}<input type="text" list="mistake-options" value={form.mistake_tags} onChange={update('mistake_tags')} /><datalist id="mistake-options">{availableTags.map((m) => <option key={m} value={m} />)}</datalist></label>
                 
                 {/* 🌟 รูป After 1 & 2 */}
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', marginTop: '16px' }}>
-                  {renderImageSlot('after_image_url', 'Chart After Trading 1', false)}
-                  {(isPro || form.after_image_url_2) && renderImageSlot('after_image_url_2', 'Chart After Trading 2', !isPro)}
+                  {renderImageSlot('after_image_url', t('ChartAfterTrading') + ' (1)', false)}
+                  {(isPro || form.after_image_url_2) && renderImageSlot('after_image_url_2', t('ChartAfterTrading') + ' (2)', !isPro)}
                 </div>
               </section>
             </fieldset>
 
             <div className="form-actions">
               {!isLockedCategory && (
-                <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save Trade'}</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? t('Saving') : t('SaveTrade')}</button>
               )}
-              {editing && <button type="button" className="btn btn-danger" onClick={handleDelete}>Delete Trade</button>}
+              {editing && <button type="button" className="btn btn-danger" onClick={handleDelete}>{t('deleteTrade')}</button>}
             </div>
           </form>
         </>
