@@ -16,6 +16,11 @@ function getLocalDatetimeString(dateObj = new Date()) {
   return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
+function pl(n) {
+  const v = Number(n) || 0
+  return `${v >= 0 ? '+' : ''}${v.toFixed(2)}`
+}
+
 const emptyForm = {
   direction: 'buy', entry_price: '', stop_loss: '', take_profit: '', lot_size: '',
   strategy: '', setup: '', timeframe: '', session: 'asia', plan_notes: '', news_notes: '',
@@ -30,8 +35,6 @@ const DEFAULT_TIMEFRAMES = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const DEFAULT_STRATEGIES = ['SMC', 'Price Action', 'EMA Cross', 'Breakout', 'Trend Following']
 const DEFAULT_SETUPS = ['BOS + Support', 'Double Top/Bottom', 'Liquidity Sweep', 'Order Block', 'Break & Retest']
 const DEFAULT_MISTAKES = ['FOMO', 'Overtrade', 'Revenge trade', 'No confirmation', 'Didn\'t cut loss', 'No news']
-
-const resultLabel = { win: '🟢 Win', loss: '🔴 Loss', breakeven: '⚪ Breakeven', open: '🟦 Open' }
 
 const compressImage = (file) => {
   return new Promise((resolve, reject) => {
@@ -63,7 +66,7 @@ const compressImage = (file) => {
   })
 }
 
-// 🌟 ระบบ Gallery แสดงรูปเรียงแท็บ และแสดงหน้าล็อกรูปถ้าหมดอายุ Pro
+// 🌟 ระบบ Gallery
 function HeroGallery({ form, isPro }) {
   const [zoomed, setZoomed] = useState(null)
   const [activeTab, setActiveTab] = useState(0)
@@ -123,7 +126,7 @@ function HeroGallery({ form, isPro }) {
 }
 
 export default function TradeForm() {
-  const { t } = useLanguage()
+  const { lang, t } = useLanguage()
   const { categoryId, id } = useParams() 
   const editing = Boolean(id)
   const { user, profile, limits } = useAuth()
@@ -277,26 +280,35 @@ export default function TradeForm() {
     navigate(`/categories/${resolvedCategoryId}`)
   }
 
+  // 🌟 ฟังก์ชันเตรียมข้อมูลให้ AI อ่านง่ายๆ และมีโครงสร้างชัดเจน
   const buildTradePrompt = () => {
+    const tradeDetails = [
+      `--- ${t('tradeDataHeader')} ---`,
+      `- ${t('direction')}: ${form.direction.toUpperCase()} | ${t('Entry')}: ${form.entry_price || '-'} | P&L: ${pl(form.profit_loss)} | ${t('Result')}: ${form.result}`,
+      `- ${t('Strategy')}: ${form.strategy || '-'} | ${t('Setup')}: ${form.setup || '-'} | ${t('session')}: ${form.session || '-'}`,
+      `- ${t('TradingPlan')}: ${form.plan_notes || '-'}`,
+      `- ${t('ReasonForWinning')}/${t('ReasonForLosing')}: ${form.win_reason || form.loss_reason || '-'}`,
+      `- ${t('LessonLearned')}: ${form.lesson || '-'}`,
+      `- ${t('MistakeTags')}: ${form.mistake_tags || '-'}`
+    ].join('\n')
+
     if (isFree) {
       return [
-        'You are a professional trading coach reviewing a trade log from a Free tier user.',
-        'Provide a concise response, maximum 3 lines.',
-        'Structure: 1) Brief summary of the trade 2) 1 basic recommendation.',
-        `Direction: ${form.direction}, Entry: ${form.entry_price || '-'}, P/L: ${form.profit_loss || 0}, Result: ${form.result}`,
+        t('aiFree1') + ` (Focus: Single Trade)`,
+        t('aiFree2'),
+        t('aiTradeFreeStruct'), 
+        tradeDetails
       ].join('\n\n')
     }
 
     return [
-      'You are a professional trading coach reviewing a trade log from a Pro tier user.',
-      'Provide a concise response using bullet points. Do not include a long introduction.',
-      'Structure: 1) Assess the rationality of the trade 2) What was done well 3) Areas for improvement 4) Recommendations for the future.',
-      `Strategy: ${form.strategy || '-'}, Setup: ${form.setup || '-'}, P/L: ${form.profit_loss || 0}`,
-      `Trading Plan: ${form.plan_notes || '-'}, Win/Loss Reason: ${form.win_reason || form.loss_reason || '-'}, Lesson: ${form.lesson || '-'}`,
-    ].join('\n')
+      t('aiPro1') + ` (Focus: Single Trade)`,
+      t('aiPro2'),
+      t('aiTradeProStruct'), 
+      tradeDetails
+    ].join('\n\n')
   }
 
-  // 🌟 ฟังก์ชันตัวช่วยเรนเดอร์ช่องอัปโหลด/แสดงรูป
   const renderImageSlot = (field, label, isLockedForUser) => {
     const url = form[field]
     
@@ -330,6 +342,8 @@ export default function TradeForm() {
     )
   }
 
+  if (loading) return <div className="page-loading">Loading...</div>
+
   return (
     <div className="page page-narrow">
       <div className="page-header">
@@ -362,16 +376,19 @@ export default function TradeForm() {
         <>
           {editing && <HeroGallery form={form} isPro={isPro} />}
           
+          {/* 🌟 จุดที่แก้ไข: ครอบ id="tour-trade-ai" ให้คลุมกล่อง AI อย่างถูกต้อง 🌟 */}
           {editing && (
-            <AIInsight 
-              title={t('AIAnalyzetrade')} 
-              cacheKey={`ai_trade_${id}`} 
-              signature={form.result+form.profit_loss} 
-              buildPrompt={buildTradePrompt} 
-              actionLabel={t('aiAnalyzeBtn')} 
-              disabled={isLockedCategory} 
-              disabledHint={t('aiDisabledHint')}  
-            />
+            <div id="tour-trade-ai">
+              <AIInsight 
+                title={t('AIAnalyzetrade')} 
+                cacheKey={`ai_trade_${id}`} 
+                signature={`${form.result}-${form.profit_loss}-${lang}`} 
+                buildPrompt={buildTradePrompt} 
+                actionLabel={t('aiAnalyzeBtn')} 
+                disabled={isLockedCategory} 
+                disabledHint={t('aiDisabledHint')}  
+              />
+            </div>
           )}
 
           <form onSubmit={handleSubmit} className="trade-form">
@@ -408,7 +425,7 @@ export default function TradeForm() {
               </section>
 
               <section className="form-section after">
-                <h2>🟥 After Trading</h2>
+                <h2>🟥 {t('AfterTrading')}</h2>
                 <div className="field-grid">
                   <label className="field">{t('Exit')}<input type="number" step="any" value={form.exit_price} onChange={update('exit_price')} /></label>
                   <label className="field">{t('ProfitLoss')}<input type="number" step="any" value={form.profit_loss} onChange={update('profit_loss')} /></label>

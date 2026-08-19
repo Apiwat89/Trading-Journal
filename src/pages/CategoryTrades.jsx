@@ -2,11 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
-import { computeStats, statsToPromptText, breakdownToPromptText } from '../lib/analytics'
+import { 
+  computeStats, 
+  statsToPromptText, 
+  breakdownToPromptText,
+  mistakeStatsToPromptText,
+  recentTradesToPromptText
+} from '../lib/analytics'
 import AIInsight from '../components/AIInsight'
 import { useLanguage } from '../context/LanguageContext'
 
-const resultLabel = { win: '🟢 WIN', loss: '🔴 LOSS', breakeven: '⚪ BE', open: '🟦 OPEN' }
+function pl(n) {
+  const v = Number(n) || 0
+  return `${v >= 0 ? '+' : ''}${v.toFixed(2)}`
+}
 
 export default function CategoryTrades() {
   const { categoryId } = useParams()
@@ -15,9 +24,17 @@ export default function CategoryTrades() {
   const [trades, setTrades] = useState([])
   const [loading, setLoading] = useState(true)
   const [isLocked, setIsLocked] = useState(false)
-  const { t } = useLanguage()
+  const { lang, t } = useLanguage()
 
   const isPro = profile?.tier === 'pro' || profile?.tier === 'pro_premium'
+
+  const getResultLabel = (res) => {
+    if (res === 'win') return t('resultWin')
+    if (res === 'loss') return t('resultLoss')
+    if (res === 'breakeven') return t('resultBE')
+    if (res === 'open') return t('resultOpen')
+    return res
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -59,29 +76,38 @@ export default function CategoryTrades() {
   const totalPL = trades.reduce((sum, t) => sum + (Number(t.profit_loss) || 0), 0)
 
   const stats = useMemo(() => computeStats(trades), [trades])
-  const aiSignature = `${trades.length}-${totalPL.toFixed(2)}-${winRate}-${isPro ? 'pro' : 'free'}`
+  const aiSignature = `${trades.length}-${totalPL.toFixed(2)}-${winRate}-${isPro ? 'pro' : 'free'}-${lang}`
 
   const buildCategoryPrompt = () => {
+    const catName = category?.name || ''
+    const catMap = { [categoryId]: catName } 
+
+    // 🌟 ดึงแค่สิ่งที่จำเป็นจริงๆ สำหรับ 1 สัญลักษณ์ (เอาแค่ Top 3 ข้อผิดพลาด และ 5 ไม้ล่าสุด)
+    const mistakeText = mistakeStatsToPromptText(stats.mistakeStats, t('mistakeAnalysis'), pl, 3) 
+    const recentTradesText = recentTradesToPromptText(stats.closed, catMap, pl, 5) 
+
     if (!isPro) {
       return [
-        `You are a professional trading coach reviewing the trading statistics for the category/symbol "${category?.name || ''}" of a Free tier user.`,
-        'Provide a concise response using bullet points. Do not include a long introduction.',
-        'Structure: 1) Brief overview of this symbol 2) 2 basic recommendations for trading this category.',
-        '--- Statistics (Free Plan) ---',
-        statsToPromptText(stats, `Category ${category?.name || ''}`),
+        `${t('aiFree1')} (Focus: ${catName})`,
+        t('aiFree2'),
+        t('aiCatFreeStruct'), // 🌟 ใช้คำสั่งโครงสร้างภาษาตามที่ผู้ใช้เลือก
+        statsToPromptText(stats, `${t('category')} ${catName}`),
       ].filter(Boolean).join('\n\n')
     }
 
     const parts = [
-      `You are a professional trading coach reviewing the in-depth trading statistics for the category/symbol "${category?.name || ''}" of a Pro tier user.`,
-      'Provide a concise response using bullet points. Do not include a long introduction.',
-      `Structure: 1) How is the trader performing with ${category?.name || 'this symbol'}? 2) Strengths seen in this category (e.g., strategy or session) 3) Weaknesses/Risks to watch out for 4) 3 actionable recommendations specifically for this category.`,
-      '--- In-depth Statistics (Pro Plan) ---',
-      statsToPromptText(stats, `Category ${category?.name || ''}`),
-      breakdownToPromptText(stats.byStrategy, 'Breakdown by Strategy within this category'),
+      `${t('aiPro1')} (Focus: ${catName})`,
+      t('aiPro2'),
+      t('aiCatProStruct'), // 🌟 ใช้คำสั่งโครงสร้างภาษาตามที่ผู้ใช้เลือก
+      statsToPromptText(stats, `${t('category')} ${catName}`),  
+      breakdownToPromptText(stats.byStrategy, t('catByStrategy'), 5), // 🌟 ส่งแค่ 5 กลยุทธ์
+      mistakeText,
+      recentTradesText
     ]
     return parts.filter(Boolean).join('\n\n')
   }
+
+  if (loading) return <div className="page-loading">Loading...</div>
 
   return (
     <div className="page">
@@ -92,7 +118,7 @@ export default function CategoryTrades() {
           {category?.description && <p className="page-sub">{category.description}</p>}
         </div>
         {!isLocked && (
-          <Link to={`/categories/${categoryId}/new`} className="btn btn-primary page-header-action">
+          <Link id="tour-new-trade-desktop" to={`/categories/${categoryId}/new`} className="btn btn-primary page-header-action">
             {t('newTrade')}
           </Link>
         )}
@@ -118,48 +144,51 @@ export default function CategoryTrades() {
           <span className="stat-label">{t('winRate')}</span>
         </div>
         <div className={`stat-pill ${totalPL >= 0 ? 'positive' : 'negative'}`}>
-          <span className="stat-value">{totalPL >= 0 ? '+' : ''}{totalPL.toFixed(2)}</span>
+          <span className="stat-value">{pl(totalPL)}</span>
           <span className="stat-label">{t('totalPnL')}</span> 
         </div>
       </div>
 
       {!loading && trades.length > 0 && (
-        <AIInsight
-          title={t('aiAnalyze').replace('{category}', category?.name || '')}
-          cacheKey={`ai_category_${user?.id || 'anon'}_${categoryId}_${isPro ? 'pro' : 'free'}`}
-          signature={aiSignature}
-          buildPrompt={buildCategoryPrompt}
-          actionLabel={t('aiAnalyzeBtn')}
-          disabled={isLocked} // 🌟 บล็อก AI ถ้าหมวดนี้โดนล็อก
-          disabledHint={t('aiDisabledHint')}
-        />
+        <div id="tour-category-ai">
+          <AIInsight
+            title={t('aiAnalyze').replace('{category}', category?.name || '')}
+            cacheKey={`ai_category_${user?.id || 'anon'}_${categoryId}_${isPro ? 'pro' : 'free'}`}
+            signature={aiSignature}
+            buildPrompt={buildCategoryPrompt}
+            actionLabel={t('aiAnalyzeBtn')}
+            disabled={isLocked}
+            disabledHint={t('aiDisabledHint')}
+          />
+        </div>
       )}
 
       {loading ? (
         <div className="empty-state">{t('noTradesInCategory')}</div>
       ) : (
         <div className="trade-list">
-          {trades.map((t) => (
-            <Link to={`/trades/${t.id}`} key={t.id} className="trade-card">
+          {trades.map((t_row, index) => (
+            <Link id={index === 0 ? "tour-trade-card" : ""} to={`/trades/${t_row.id}`} key={t_row.id} className="trade-card">
               <div className="trade-card-section before">
                 <div className="trade-card-row">
-                  <span>{t.direction === 'buy' ? '📈 BUY' : '📉 SELL'}</span>
-                  <span>Entry {t.entry_price ?? '-'}</span>
-                  <span>SL {t.stop_loss ?? '-'}</span>
-                  <span>TP {t.take_profit ?? '-'}</span>
-                  <span>Lot {t.lot_size ?? '-'}</span>
+                  <span style={{ fontWeight: 'bold', color: t_row.direction === 'buy' ? 'var(--win)' : 'var(--loss)' }}>
+                    {t_row.direction === 'buy' ? `📈 BUY` : `📉 SELL`}
+                  </span>
+                  <span>Entry {t_row.entry_price ?? '-'}</span>
+                  <span>SL {t_row.stop_loss ?? '-'}</span>
+                  <span>TP {t_row.take_profit ?? '-'}</span>
+                  <span>Lot {t_row.lot_size ?? '-'}</span>
                 </div>
-                {t.strategy && <div className="trade-card-tag">{t.strategy}</div>} <br />
-                {t.plan_notes && <div className="trade-card-tag2">{t.plan_notes}</div>}
+                {t_row.strategy && <div className="trade-card-tag">{t_row.strategy}</div>} <br />
+                {t_row.plan_notes && <div className="trade-card-tag2">{t_row.plan_notes}</div>}
               </div>
               <div className="trade-card-section result">
-                <span className={`result-badge ${t.result}`}>{resultLabel[t.result]}</span>
-                <span className={Number(t.profit_loss) >= 0 ? 'positive' : 'negative'}>
-                  {Number(t.profit_loss) >= 0 ? '+' : ''}
-                  {t.profit_loss ?? 0}
+                <span className={`result-badge ${t_row.result}`}>{getResultLabel(t_row.result)}</span>
+                <span className={Number(t_row.profit_loss) >= 0 ? 'positive' : 'negative'}>
+                  {pl(t_row.profit_loss)}
                 </span>
                 <span className="trade-card-date">
-                  {new Date(t.traded_at).toLocaleDateString('en-US')}
+                  {new Date(t_row.traded_at).toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US')}
                 </span>
               </div>
             </Link>
@@ -168,10 +197,10 @@ export default function CategoryTrades() {
       )}
 
       {!isLocked && (
-        <Link to={`/categories/${categoryId}/new`} className="fab" aria-label="Record New Trade">
+        <Link id="tour-new-trade-mobile" to={`/categories/${categoryId}/new`} className="fab" aria-label="Record New Trade">
           +
         </Link>
       )}
     </div>
   )
-} 
+}

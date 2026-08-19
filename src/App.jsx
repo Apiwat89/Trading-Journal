@@ -10,14 +10,14 @@ import CategoryTrades from './pages/CategoryTrades'
 import TradeForm from './pages/TradeForm'
 import Settings from './pages/Settings'
 import Upgrade from './pages/Upgrade'
-import DevelopmentAlert from './components/DevelopmentAlert'
+import SpotlightTour from './components/SpotlightTour'
 
 export default function App() {
   return (
     <AuthProvider>
       <LanguageProvider> {/* 🌟 ครอบไว้ชั้นนอกสุดเพื่อให้ทุกหน้าใช้งานภาษาได้ */}
         <AppContent />
-          <DevelopmentAlert /> {/* 🌟 เพิ่ม DevelopmentAlert */}
+        <SpotlightTour /> {/* 🌟 เรียกใช้งานตรงนี้เลย */}
       </LanguageProvider>
     </AuthProvider>
   )

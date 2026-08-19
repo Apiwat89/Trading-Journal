@@ -69,6 +69,8 @@ export default function Categories() {
   const activeCategories = categories.slice(0, limits.categories)
   const lockedCategories = categories.slice(limits.categories)
 
+  if (loading) return <div className="page-loading">Loading...</div>
+
   return (
     <div className="page">
       <div className="page-header">
@@ -86,8 +88,33 @@ export default function Categories() {
         </div>
       ) : (
         <form onSubmit={handleCreate} className="inline-form">
-          <input type="text" placeholder={t('exampleCategory')} value={newName} onChange={(e) => setNewName(e.target.value)} disabled={isLimitReached} />
-          <button type="submit" className="btn btn-primary" disabled={isLimitReached}>{t('addCategory')}</button>
+        <div 
+            id="tour-add-category" 
+            style={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: '8px', 
+              marginBottom: '24px', 
+              width: '100%'
+            }}
+          > 
+            <input 
+              type="text" 
+              placeholder={t('exampleCategory')} 
+              value={newName} 
+              onChange={(e) => setNewName(e.target.value)} 
+              disabled={isLimitReached} 
+              style={{ flex: '1 1 200px' }} 
+            />
+            {/* 🌟 ลบ class="page-header-action" ออกไปเลยครับ และเพิ่ม whiteSpace: 'nowrap' กันข้อความตกบรรทัด */}
+            <button 
+              className="btn btn-primary" 
+              onClick={() => setShowForm(true)}
+              style={{ flexShrink: 0, whiteSpace: 'nowrap' }} 
+            >
+              {t('addCategory')}
+            </button>
+          </div>
         </form>
       )}
 
@@ -99,8 +126,12 @@ export default function Categories() {
         <>
           {/* หมวดหมู่ที่ใช้งานได้ */}
           <div className="category-grid" style={{ marginBottom: '32px' }}>
-            {activeCategories.map((c) => (
-              <div key={c.id} className="category-card">
+            {activeCategories.map((c, index) => (
+              <div 
+                key={c.id} 
+                id={index === 0 ? "tour-category-card-0" : ""} /* 🌟 เติม id สำหรับชี้เป้าสปอตไลต์ */
+                className="category-card"
+              >
                 <Link to={`/categories/${c.id}`} className="category-card-main">
                   <div className="category-card-name">{c.name}</div>
                   <div className="category-card-count">{counts[c.id] || 0} {t('trades')}</div>

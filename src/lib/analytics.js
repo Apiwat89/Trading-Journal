@@ -16,8 +16,8 @@ export const SESSION_LABELS = {
 }
 
 export const DIRECTION_LABELS = {
-  buy: 'Buy (Long)',
-  sell: 'Sell (Short)',
+  buy: '📈 Buy',
+  sell: '📉 Sell',
 }
 
 // ฟังก์ชันคำนวณสถิติเชิงลึกทั้งหมด

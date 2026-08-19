@@ -65,7 +65,7 @@ export default function Upgrade() {
           <div>
             <div style={{ display: 'inline-block', background: 'var(--gold)', color: '#000', fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', marginBottom: '8px' }}>{t('recommendedBadge')}</div>
             <h3 style={{ fontSize: '18px', marginBottom: '8px', color: 'var(--gold)' }}>{t('proPlanName')}</h3>
-            <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>79 THB <span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-dim)' }}>{t('perMonth')}</span></div>
+            <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>35 THB <span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-dim)' }}>{t('perMonth')}</span></div>
             <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px 0', display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-main)', fontSize: '14px' }}>
               <li>{t('proF1')}</li>
               <li>{t('proF2')}</li>
@@ -91,7 +91,7 @@ export default function Upgrade() {
         <div className="panel pricing-card" style={{ borderColor: 'var(--ai-border)', background: 'linear-gradient(160deg, rgba(155, 140, 251, 0.05), transparent)' }}>
           <div>
             <h3 style={{ fontSize: '18px', marginBottom: '8px', color: 'var(--ai-2)' }}>{t('premPlanName')}</h3>
-            <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>199 THB <span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-dim)' }}>{t('perMonth')}</span></div>
+            <div style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>~129 THB <span style={{ fontSize: '14px', fontWeight: 'normal', color: 'var(--text-dim)' }}>{t('perMonth')}</span></div>
             <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px 0', display: 'flex', flexDirection: 'column', gap: '10px', color: 'var(--text-dim)', fontSize: '14px' }}>
               <li>{t('premF1')}</li>
               <li>{t('premF2')}</li>

@@ -274,7 +274,7 @@ export default function Dashboard() {
           <p className="page-sub">{t('subTitle')}</p>
         </div>
 
-        <div style={{ display: 'flex', gap: '6px', background: 'var(--surface-2)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+        <div id="tour-filter" style={{ display: 'flex', gap: '6px', background: 'var(--surface-2)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border)' }}>
           {[
             { id: 'all', label: t('filterAll') },
             { id: 'month', label: t('filterMonth') },
@@ -309,7 +309,7 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          <div className="stat-row">
+          <div id="tour-dashboard-stats" className="stat-row">
             <div className="stat-pill">
               <span className="stat-value">{stats.totalTrades}</span>
               <span className="stat-label">{t('totalTrades')}</span>
@@ -351,14 +351,15 @@ export default function Dashboard() {
               <span className="stat-label">{t('avgLoss')}</span>
             </div>
           </div>
-
-          <AIInsight
-            title={t('aiAnalyzePort')}
-            cacheKey={`ai_overall_${user?.id || 'anon'}_${dateFilter}`}
-            signature={aiSignature}
-            buildPrompt={buildOverallPrompt}
-            actionLabel={t('aiAnalyzeBtn')}
-          />
+          <div id="tour-ai">  
+            <AIInsight
+              title={t('aiAnalyzePort')}
+              cacheKey={`ai_overall_${user?.id || 'anon'}_${dateFilter}`}
+              signature={aiSignature}
+              buildPrompt={buildOverallPrompt}
+              actionLabel={t('aiAnalyzeBtn')}
+            /> 
+          </div>
 
           <div className="panel">
             <h2>{t('equityCurve')}</h2>
@@ -487,7 +488,7 @@ export default function Dashboard() {
                     <thead>
                       <tr>
                         <th>{t('date')}</th>
-                        <th>{t('symbol')}</th>
+                        <th>{t('catgory')}</th>
                         <th>{t('direction')}</th>
                         <th>{t('strategy')}</th>
                         <th>{t('result')}</th>

@@ -86,6 +86,21 @@ export default function Settings() {
         </form>
       </div>
 
+      {/* 🌟 เพิ่มแผงสำหรับปุ่มเรียกดูทัวร์การใช้งาน 🌟 */}
+      <div className="panel" style={{ marginTop: '24px' }}>
+        <h2 style={{ marginBottom: '8px' }}>{t('Tutorial')}</h2>
+        <p style={{ color: 'var(--text-dim)', fontSize: '14px', marginBottom: '16px' }}>
+          {t('TutorialDetail')}
+        </p>
+        <button 
+          className="btn btn-primary" 
+          onClick={() => window.dispatchEvent(new Event('start-tour'))} // 🌟 สั่งยิง Event ชื่อ 'start-tour'
+          style={{ width: '100%', fontWeight: 'bold' }}
+        >
+          {t('btnTutorial')}
+        </button>
+      </div>
+
       {/* --- ปุ่มติดต่อแอดมินผ่าน Line --- */}
         <div style={{ textAlign: 'center', marginTop: '30px' }}>
           <a 
