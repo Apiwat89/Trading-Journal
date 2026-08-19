@@ -60,7 +60,7 @@ export default function Categories() {
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this category? All trades in this category will also be deleted.')) return
+    if (!window.confirm(t('DeleteCat'))) return
     await supabase.from('categories').delete().eq('id', id)
     load()
   }
