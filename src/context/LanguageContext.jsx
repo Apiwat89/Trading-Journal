@@ -93,6 +93,7 @@ const translations = {
     noCategories: 'No categories yet — add your first category above',
     delete: 'Delete',
     categoryLocked: '🔒 Locked Categories (Upgrade to Pro to unlock)',
+    DeleteCat: 'Delete this category? All trades in this category will also be deleted.',
 
     // CategoryTrades
     allCat: '← All Categories',
@@ -363,6 +364,7 @@ const translations = {
     noCategories: 'ยังไม่มีหมวดหมู่ — เพิ่มหมวดหมู่แรกของคุณด้านบน',
     delete: 'ลบ',
     categoryLocked: '🔒 หมวดหมู่ถูกล็อก (อัปเกรดเป็น Pro เพื่อปลดล็อก)',
+    DeleteCat: 'ลบหมวดหมู่นี้หรือไม่? การซื้อขายทั้งหมดในหมวดหมู่นี้จะถูกลบไปด้วย',
 
     // CategoryTrades
     allCat: '← หมวดหมู่ทั้งหมด',
